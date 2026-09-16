@@ -33,9 +33,11 @@ Reference) are authoritative** — they exist specifically to resolve ambiguity.
 4. **Never weaken `tsconfig.json` or `.eslintrc.json`** to make code compile or lint clean. If
    a rule blocks code you're writing, that is a signal the code belongs in a different module
    (e.g., an `fs` import belongs in `/host-bindings`), not that the rule is wrong.
-5. **Work one phase at a time, strictly in order (0 → 9).** Do not write Phase *N+1*
-   implementation code until Phase *N*'s CI Gate (Section 11) is fully green. Do not write
-   "while I'm in the area" code for a later phase — it creates untested effectful surface area.
+5. **Work one phase at a time, strictly in order (0 → 9).** Phases 7 and 8 are deferred
+   optional post-1.0 work (user-approved 2026-09-16), so the 1.0 order is 0 → 6 then 9 —
+   see the Section 11 deferral note. Do not write Phase *N+1* implementation code until
+   Phase *N*'s CI Gate (Section 11) is fully green. Do not write "while I'm in the area"
+   code for a later phase — it creates untested effectful surface area.
 6. **Every new stdlib function that reaches `/host-bindings` ships with at least one
    `*.negative.placitum` test**, in the same commit, proving `CapabilityGuard` denies an
    unauthorized use of it.
@@ -164,7 +166,7 @@ manifest unchanged** (it is not automatically attenuated to nothing).
 ├── capability/         
 │   ├── extractor.ts    # Phase 3. Pure. ASTNode -> SerializedCapabilityManifest.
 │   └── guard.ts         # Phase 4. The only module (besides host-bindings) allowed to import fs for realpath.
-├── cli/                # CLI entrypoints (run, explain, audit, rewind).
+├── cli/                # CLI entrypoints (run, explain; audit/rewind with the deferred Phases 7/8).
 ├── evaluator/          # Tree-walking interpreter and environment closures.
 ├── host-bindings/      # THE ONLY DIRECTORY ALLOWED TO IMPORT fs / child_process / net / http / https / os / dgram / tls.
 ├── lexer/              # Hand-rolled character scanner.
@@ -787,7 +789,7 @@ directory instead.
 | `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin` | dev | Enforces Section 8.1. |
 | `vitest` | dev | Test runner + golden-file snapshotting. |
 | `tsx` | dev | Runs `.ts` directly for local iteration / CI scripts. |
-| `commander` | runtime | CLI argument parsing for Phase 9 (`run`, `explain`, `audit`, `rewind` subcommands). |
+| `commander` | runtime | CLI argument parsing for Phase 9 (`run`, `explain` subcommands for 1.0; `audit`/`rewind` when the deferred Phases 7/8 ship). |
 | `prettier` | dev | Formatting only — never used to silence a lint error. |
 | `@types/node` | dev | Type declarations for the Node.js host runtime — types-only, zero runtime/audit surface; required for `tsc` to type host APIs used by tests and `/host-bindings`. |
 
@@ -937,6 +939,11 @@ basename — a test runner iterates the negative directory and asserts the actua
 **Global rule (restated from Section 0.5): Phase N+1 implementation code must not be written
 until Phase N's CI Gate below is fully green.**
 
+> **Deferral note (2026-09-16, user-approved).** Phases 7 and 8 are deferred optional
+> post-1.0 work: the 1.0 build order is 0 → 6, then 9. Their DoDs and CI gates below
+> apply unchanged whenever they are built, and the release surface then extends to
+> them; for 1.0, Phase 9's DoD and CI gate are scoped to `run` + `explain`.
+
 ### Phase 0 — Scaffolding & Security-First Test Harness
 - **Goal:** CI pipeline, import boundary, and adversarial test corpus exist before any language feature does.
 - **DoD:**
@@ -1011,7 +1018,12 @@ until Phase N's CI Gate below is fully green.**
   - [ ] `tests/explain/rosetta.explain.golden.txt` for the Rosetta Stone example.
 - **CI Gate:** explain goldens match byte-for-byte.
 
-### Phase 7 — AI-Agent Mode (`infer`, `audit`, `run --attenuate`)
+### Phase 7 — AI-Agent Mode (`infer`, `audit`, `run --attenuate`) — DEFERRED (optional, post-1.0)
+
+> Deferred by user decision 2026-09-16: not part of the 1.0 release. Build after
+> Phase 9 if LLM-assisted manifest minimization is wanted; the DoD below applies
+> unchanged when this phase is built.
+
 - **Goal:** LLM-assisted manifest minimization, with the LLM never bypassing the compiler.
 - **DoD:**
   - [ ] Every LLM-produced `.placitum` script is passed through the real Phase 2 parser and Phase 3 extractor before any diff is shown to the user — no bespoke "trust the LLM's JSON" path exists anywhere in this phase.
@@ -1020,7 +1032,12 @@ until Phase N's CI Gate below is fully green.**
   - [ ] `E701`–`E703` each have a passing negative test.
 - **CI Gate:** all agent-mode adversarial fixtures rejected with the correct code.
 
-### Phase 8 — `rewind` (Replay Debugger)
+### Phase 8 — `rewind` (Replay Debugger) — DEFERRED (optional, post-1.0)
+
+> Deferred by user decision 2026-09-16: not part of the 1.0 release. Build after
+> Phase 9 if deterministic replay is wanted; the DoD below applies unchanged when
+> this phase is built.
+
 - **Goal:** Append-only log of effectful I/O with deterministic replay to step N.
 - **DoD:**
   - [ ] Every effectful call is logged with a content hash of relevant external state (file contents before/after, response body, etc.).
@@ -1033,9 +1050,9 @@ until Phase N's CI Gate below is fully green.**
 - **Goal:** Final binary, deterministic error UX, optional secondary sandbox.
 - **DoD:**
   - [ ] Every `PlacitumError` reaching the CLI boundary renders through the single formatter in Section 9.3 — a grep-based CI check confirms no ad hoc `console.error(err)` remains anywhere in `src/`.
-  - [ ] `placitum run|explain|audit|rewind --help` and `--version` produce deterministic, tested output.
+  - [ ] `placitum run|explain --help` and `--version` produce deterministic, tested output.
   - [ ] (Optional, non-blocking) the compiled binary is wrapped with Deno permission flags or Node's `--permission` as a secondary sandbox layer — documented explicitly as defense-in-depth, never as a substitute for `CapabilityGuard`.
-- **CI Gate:** an end-to-end test runs the Rosetta Stone example through `run`, `explain`, and `audit` successfully. This is the final release gate.
+- **CI Gate:** an end-to-end test runs the Rosetta Stone example through `run` and `explain` successfully. This is the final release gate. (When the deferred Phases 7/8 ship, the gate extends to `audit` and `rewind` per their DoDs.)
 
 ---
 

@@ -1,0 +1,35 @@
+grants (statically proven):
+  fs.read   /data/*.json
+  fs.write  /out/*
+  exec      /usr/bin/*
+  net       *.example.com
+  env       HOME (required)
+  env       DEBUG (optional)
+
+fn save_log (attenuated needs only(...)):
+  grants (statically proven):
+    fs.read   (none)
+    fs.write  /out/*
+    exec      (none)
+    net       (none)
+    env       (none)
+
+  deferred to runtime:
+    (none)
+
+fn grab (attenuated needs only(...)):
+  grants (statically proven):
+    fs.read   (none)
+    fs.write  (none)
+    exec      (none)
+    net       *.example.com
+    env       (none)
+
+  deferred to runtime:
+    net      [315..322]  argument 0 is the piped runtime value (not a compile-time literal)
+
+deferred to runtime:
+  fsWrite  [147..166]  argument 0 is not a compile-time string literal (Identifier `name`)
+  fsRead   [392..414]  argument 0 is not a compile-time string literal (MemberExpr)
+
+note: path grants match the canonicalized path (symlinks and .. are resolved before matching)

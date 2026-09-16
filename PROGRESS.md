@@ -2,7 +2,8 @@
 
 > For the next AI agent: read `placitum-implementation.md` first (it is authoritative),
 > then this file. Work one phase at a time; do not start Phase N+1 code until Phase N's
-> CI gate is green (Section 0, rule 5).
+> CI gate is green (Section 0, rule 5). Phases 7 and 8 are deferred optional post-1.0
+> work (user-approved 2026-09-16): the 1.0 build order is 0 → 6 then 9.
 
 ## Environment
 
@@ -25,12 +26,17 @@
 | **3 — Static Capability Extraction** | **DONE** | green (2026-09-16) |
 | **4 — CapabilityGuard** | **DONE** | green (2026-09-16) |
 | **5 — Tree-Walking Evaluator** | **DONE** | green (2026-09-16) |
+| **6 — `placitum explain`** | **DONE** | green (2026-09-16) |
+| **7 — AI-Agent mode** | **DEFERRED** | optional post-1.0 (user-approved 2026-09-16) |
+| **8 — `rewind`** | **DEFERRED** | optional post-1.0 (user-approved 2026-09-16) |
+| **9 — CLI, packaging & hardening** | **NEXT** | final release gate (md Section 11) |
 
 Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `vitest run`
-(= `npm run ci`). Last verified: 140/140 tests passing (10 phase0 + 16 lexer +
+(= `npm run ci`). Last verified: 151/151 tests passing (10 phase0 + 16 lexer +
 19 parser + 37 capability [19 patterns, 9 extract-negatives, 4 manifest-goldens,
 3 extractor-behavior, 2 purity] + 23 guard [3 negatives, 20 unit] + 35 eval
-[3 goldens, 10 negatives, 10 chokepoint, 12 semantics]).
+[3 goldens, 10 negatives, 10 chokepoint, 12 semantics] + 11 explain
+[3 goldens, 7 renderer, 1 purity]).
 Test count dropped 110 → 105 in the post-audit refinement: five duplicated
 pairing `it`s were consolidated into the shared fixture loader's throw.
 
@@ -75,6 +81,13 @@ against `PlacitumErrorSchema` — so `src/` holds exactly one file: `src/shared/
    transitive dev deps carry 5 `npm audit` findings (dev-only, no runtime ship).
    Upgrade path: migrate to flat config + ts-eslint v8 when the spec's config
    format is revisited.
+6. **Phases 7 (AI-Agent mode) and 8 (`rewind`) deferred as optional post-1.0
+   work** (user-approved 2026-09-16). Md amended: Section 0 rule 5, the
+   Section 11 deferral note + Phase 7/8 headings, Phase 9's `--help`/CI-gate
+   lines, and the `commander` allow-list row. The 1.0 build order is 0 → 6 → 9;
+   the deferred phases' DoDs apply unchanged whenever they are built. Dormant
+   until then: E7xx/E8xx codes, `tests/agent/`/`tests/replay/` naming, and the
+   guard's ambient-write routing rationale (the routing itself already exists).
 
 ## Decisions within spec latitude
 
@@ -547,11 +560,118 @@ both fixed with regression coverage; gate 140/140 after):
    test with `fn constructor() needs only(...)` and `fn __proto__()
    needs only(...)`; E502 semantics cases for `constructor!`/`__proto__!`.
 
-## Next: Phase 6 — `placitum explain` (DoD in Section 11)
+## Phase 6 DoD checklist
 
-`CapabilityManifest → Stdout String`, zero I/O, purity smoke test analogous to
-Phase 3's, statically-proven grants visually separated from
-`deferredToRuntime`, `tests/explain/rosetta.explain.golden.txt`. Phase 5
-leaves the manifest pipeline (`extract` → `compileManifest`) ready to consume;
-the explain renderer must not re-derive anything, only read the manifest.
+- [x] Purity smoke test analogous to Phase 3's: that phase's transpile/
+      mini-require machinery was extracted to `tests/helpers/vm-sandbox.ts`
+      (shared by both purity tests — `tests/capability/purity.test.ts`
+      refactored onto it, behavior unchanged). The explain closure
+      (`cli/explain.ts`, `shared/manifest.ts`, `shared/glob-to-regex.ts`,
+      `shared/errors.ts`) runs in the vm with zod as the single allowlisted
+      bare import (a pure validator — fs/net/os/child_process still don't
+      exist in the context); rosetta renders byte-identical inside and
+      outside the sandbox.
+- [x] Output visually separates statically-proven grants from
+      `deferredToRuntime` entries: `grants (statically proven):` (all five
+      categories — `(none)` is an explicit claim, not an omission; net
+      wildcards render raw; env shows `(required)`/`(optional)`), then each
+      attenuated fn's scoped manifest (recursive — the extractor nests scoped
+      for fns declared inside fns), then `deferred to runtime:` with
+      `category [span] reason` lines; blank lines + two-space indents do the
+      visual separation.
+- [x] `tests/explain/rosetta.explain.golden.txt` + (user-approved)
+      `kitchen-sink.explain.golden.txt` — rosetta alone renders no wildcard
+      net, no optional env, no exec/fsWrite grants, no top-level deferred
+      entries. Generated via `UPDATE_GOLDENS=1`, then hand-reviewed against
+      the manifest goldens' patterns/spans/reason strings before commit.
+- CI gate: green — 150/150, explain goldens byte-for-byte.
+
+### Phase 6 decisions
+
+1. **Renderer consumes the `SerializedManifest`, not the compiled
+   `CapabilityManifest`.** It displays only raw patterns, and the serialized
+   form is the published artifact (Section 2.2 step 3) that explain, audit
+   and Phase 7 round-trip through JSON. `explain(manifest: unknown): string`
+   validates via the existing zod schema; failure is
+   `E603_EXPLAIN_RENDER_FAILURE` (first `CliError` — phase `cli`, added to
+   `shared/errors.ts` per the class-hierarchy convention). Zod reuse was
+   user-approved; it is why the purity harness gained its single allowlisted
+   bare import.
+2. **zod `z.record` silently drops an own `__proto__` key — explain must
+   not.** A fn literally named `__proto__` is legal and deliberately
+   preserved (extractor's null-proto `scoped`; guard/evaluator regression
+   tests), but zod's record assigns entries into a plain object, so that
+   child becomes the record's *prototype* instead of an own entry (probed:
+   `own __proto__: false`). Since explain is the security-transparency
+   surface, under-reporting a scoped manifest is a bug: `repairScoped`
+   re-attaches any child present in the raw input but absent from the parsed
+   output, re-validated through the same schema (never trusted because it
+   "should" have passed), and recurses for nested scoped. Fail-closed on the
+   recovered child's validation. Both regression tests (hand-built manifest
+   and the real lex→parse→extract path) were **proven to fire** by reverting
+   `repairScoped` (both fail), then the fix was restored.
+3. **Canonicalization note pays the Phase 4 decision-4 debt.** One footer
+   line (`note: path grants match the canonicalized path (symlinks and .. are
+   resolved before matching)`) appears only when fsRead/fsWrite/exec grants
+   exist. The top-level check is complete because E303 attenuation forbids a
+   scoped child from carrying a path grant the parent lacks.
+4. **Deferred spans render as raw source offsets** (`[168..192]`): the
+   renderer has zero I/O, so it has no source text to translate them to
+   line:col. A Phase 9 CLI could post-process if wanted; nothing re-derives.
+5. **Renderer lives in `src/cli/explain.ts`** (Section 3 tree; E6xx is thrown
+   by `cli/`). It *returns* the string and never prints — Phase 9's CLI owns
+   stdout; Phase 6 ships no CLI wiring (no commander install yet, per phase
+   discipline).
+6. **Alignment constants are pinned by the goldens**: grant labels pad to 10,
+   deferred categories to 9; `Object.entries` order = source declaration
+   order, so output is deterministic.
+
+### Post-phase fix (2026-09-16)
+
+1. **Explain rendered manifest strings raw — control characters could forge
+   output lines.** `\n` is a legal source-string escape, so the extractor can
+   publish a grant pattern containing a newline; Phase 7 manifests are
+   untrusted JSON with arbitrary `reason` and `scoped`-key strings. Rendered
+   raw, `net("evil\n  exec      /bin/rm")` emitted a line indistinguishable
+   from a genuine grant line in the transparency tool. `printable()` now
+   JSON-quotes any string containing C0 controls/DEL, applied to every
+   free-text field (patterns, env names, fn ids, deferred reasons) and the
+   E603 detail; normal strings render verbatim (goldens unchanged).
+   Regression test **proven to fire** before the fix (hand-built manifest;
+   pipeline reachability is extractor-tested). Gate 151/151.
+
+## Next: Phase 9 — CLI, Packaging & Hardening (final release gate)
+
+1.0 scope (md Section 11): `placitum run` and `placitum explain` subcommands,
+`--help`/`--version` (deterministic, tested), every `PlacitumError` reaching the
+CLI boundary rendered through the single Section 9.3 formatter (grep-checked: no
+ad hoc `console.error` in `src/`), and an end-to-end test running the Rosetta
+Stone example through `run` and `explain` (`audit`/`rewind` belong to the
+deferred phases). `commander` (allow-listed; not installed yet) is the argument
+parser; `E601_CLI_FILE_NOT_FOUND`/`E602_CLI_INVALID_FLAG` are this phase's codes.
+`explain()` (Phase 6) returns the string — the CLI prints it; `runSource` is the
+run wiring. Forward-note: reading the script file must respect the import
+boundary (`fs` is restricted to `/host-bindings` + `guard.ts`) — Phase 9
+decides between a host binding and a scoped `cli/` ESLint exception.
+
+## Deferred (optional, post-1.0): Phases 7 & 8
+
+User-approved 2026-09-16; md updated (Section 0 rule 5, Section 11 deferral note
+and headings, Phase 9 DoD/gate, commander allow-list row). Build order is
+0 → 6 → 9; their DoDs and CI gates apply unchanged whenever they are built.
+
+Phase 7 notes (for whenever it is built): every LLM-produced script goes through
+the real Phase 2 parser + Phase 3 extractor before any diff is shown;
+manifest-shaped JSON is validated against `SerializedCapabilityManifestSchema`
+(Section 7.3) and regexes are never accepted from JSON. Phase 6's
+`explain(manifest)` is the rendering primitive for diffs, and `repairScoped`'s
+lesson generalizes: **any manifest JSON that round-trips through `z.record` must
+be checked for dropped `__proto__` scoped entries before a diff is trusted** —
+the Phase 7 diff path is a disclosure surface and the "looks narrower than it
+parses" adversarial fixture is exactly this class of bug.
+
+Phase 8 notes: append-only log of effectful I/O with content hashes, E801–E803,
+pure playback to step N then live resumption through the normal guard. The
+ambient-write choke-point routing (Section 1) already exists in `guard.ts` /
+`stdlib.ts`, so the log has a complete hook point when this lands.
 
