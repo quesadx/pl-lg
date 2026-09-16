@@ -1,0 +1,7 @@
+{
+  "code": "E303_EXTRACT_ATTENUATION_ESCALATION",
+  "phase": "extract",
+  "severity": "error",
+  "message": "fn f: fs.read(\"/etc/passwd\") requests a capability outside the enclosing scope's manifest.",
+  "hint": "A needs clause on a fn may only attenuate to a subset of the enclosing needs tokens."
+}

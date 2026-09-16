@@ -1,0 +1,47 @@
+{
+  "net": [
+    {
+      "type": "exact",
+      "pattern": "api.example.com"
+    }
+  ],
+  "fsRead": [
+    {
+      "raw": "/etc/config/*.json"
+    }
+  ],
+  "fsWrite": [],
+  "exec": [],
+  "env": [
+    {
+      "name": "API_KEY",
+      "optional": false
+    }
+  ],
+  "scoped": {
+    "fetch_status": {
+      "net": [
+        {
+          "type": "exact",
+          "pattern": "api.example.com"
+        }
+      ],
+      "fsRead": [],
+      "fsWrite": [],
+      "exec": [],
+      "env": [],
+      "scoped": {},
+      "deferredToRuntime": [
+        {
+          "nodeSpan": [
+            168,
+            192
+          ],
+          "category": "net",
+          "reason": "argument 0 is the piped runtime value (not a compile-time literal)"
+        }
+      ]
+    }
+  },
+  "deferredToRuntime": []
+}

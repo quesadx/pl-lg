@@ -1,0 +1,7 @@
+{
+  "code": "E301_EXTRACT_UNCOVERED_CAPABILITY",
+  "phase": "extract",
+  "severity": "error",
+  "message": "curl!(\"https://evil.com/x\") reaches host \"evil.com\" that no in-scope needs net(...) token covers.",
+  "hint": "Add a needs net(...) grant for that host, or build the URL from a variable so it is checked at runtime."
+}

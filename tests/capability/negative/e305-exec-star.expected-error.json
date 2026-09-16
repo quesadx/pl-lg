@@ -1,0 +1,7 @@
+{
+  "code": "E305_EXTRACT_OVERPRIVILEGED_WILDCARD",
+  "phase": "extract",
+  "severity": "error",
+  "message": "exec(\"*\") is a bare match-everything pattern.",
+  "hint": "Name the binaries explicitly, e.g. exec(\"/usr/bin/*\")."
+}

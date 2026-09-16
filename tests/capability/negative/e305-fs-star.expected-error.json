@@ -1,0 +1,7 @@
+{
+  "code": "E305_EXTRACT_OVERPRIVILEGED_WILDCARD",
+  "phase": "extract",
+  "severity": "error",
+  "message": "fs.read(\"**\") is a bare match-everything pattern.",
+  "hint": "Name the narrowest path that suffices, e.g. fs.read(\"/etc/config/**\")."
+}

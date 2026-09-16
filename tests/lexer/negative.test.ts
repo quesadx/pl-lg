@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { lex } from '../../src/lexer/lexer.js';
-import { LexError, PlacitumErrorSchema } from '../../src/shared/errors.js';
+import { LexError } from '../../src/shared/errors.js';
+import { PlacitumErrorSchema } from '../../src/shared/error-schema.js';
 
 const negativeDir = new URL('./negative/', import.meta.url);
 

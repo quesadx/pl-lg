@@ -22,9 +22,13 @@
 | **0 — Scaffolding & test harness** | **DONE** | green (2026-09-15) |
 | **1 — Lexer** | **DONE** | green (2026-09-15) |
 | **2 — Parser & AST** | **DONE** | green (2026-09-15) |
+| **3 — Static Capability Extraction** | **DONE** | green (2026-09-16) |
 
 Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `vitest run`
-(= `npm run ci`). Last verified: 42/42 tests passing (5 phase0 + 17 lexer + 20 parser).
+(= `npm run ci`). Last verified: 86/86 tests passing (11 phase0 + 17 lexer +
+20 parser + 19 patterns + 10 extract-negatives + 4 manifest-goldens +
+3 extractor-behavior + 2 purity; phase0 count includes validating all six
+Phase 3 negative fixture pairs).
 
 ## Phase 0 DoD checklist
 
@@ -183,19 +187,143 @@ against `PlacitumErrorSchema` — so `src/` holds exactly one file: `src/shared/
 7. **f-string `{a}{b}`** produces two adjacent expr parts; the 7.1 comment
    says "alternating" but nothing enforces it. Ignored.
 
-## Next: Phase 3 — Static Capability Extraction (DoD in Section 11)
+## Phase 3 DoD checklist
 
-Pure `ASTNode → SerializedCapabilityManifest` (Sections 2.1, 7.2, 7.3). Key notes:
-- `assertNever` already lives in `src/shared/assert-never.ts`; `ParseError`
-  precedent: append `ExtractError` to `src/shared/errors.ts`.
-- Glob-to-regex compiler in `shared/` must support `**` crossing `/` and a
-  single `*` NOT crossing `/` (see Phase 0 decision on
-  `traversal.negative.placitum`); pure string transform, zero disk contact.
-- `only(...)` never nests (parser already guarantees) — extractor consumes
-  `FnDecl.needs` for `scoped`; child ⊂ parent or `E303`; bare `"*"` → `E305`;
-  uncovered literal `BangCall` → `E301`; non-literal args → `DeferredCheck`.
-- Purity smoke test: run the extractor under Node `vm` with
-  `fs`/`net`/`child_process` etc. `undefined`.
-- Rosetta manifest golden: `tests/capability/rosetta.manifest.golden.json`,
-  generated + hand-reviewed like the AST golden.
+- [x] Purity smoke test: extractor runs inside Node `vm`; its runtime closure
+      (`capability/extractor.ts`, `shared/glob-to-regex.ts`,
+      `shared/assert-never.ts`, `shared/errors.ts`) is transpiled to CJS via
+      `ts.transpileModule` and loaded through a mini-`require` that serves only
+      closure members — anything else (fs, zod, bare imports) throws.
+      **Proven to fire:** injecting `import { readFileSync } from 'node:fs'`
+      (+ a use) into extractor.ts fails with `purity violation: ... imports
+      "node:fs"`; reverted, green again. Note: an *unused* value import is
+      elided by TS CJS emit, so it never reaches the sandbox — unreachable
+      code can't do I/O, which is the property that matters. Rosetta +
+      kitchen-sink extract inside the vm byte-identical to the normal run.
+- [x] Exhaustiveness: statement/expr/token switches each end in an E304-flavored
+      `assertNever` (`unhandled(x: never)` — same compile-time guarantee, the
+      runtime backstop carries the `E304_EXTRACT_UNHANDLED_NODE` envelope).
+      E304 exercised by a unit test with a cast bogus-kind node (the parser
+      can never produce one).
+- [x] Glob-to-regex unit tested against strings alone (`patterns.test.ts`,
+      zero filesystem contact): `*` stays within a segment, `**` (whole
+      segment only) crosses `/`, metachars literal, anchored, E302/E305.
+- [x] E303 fires (`e303-attenuation-escalation`; **plus
+      `e303-multi-token-escalation` from the post-phase audit — the original
+      `checkAttenuation` loop `return`ed after the first needs token, so a
+      second escalating token in `needs only(...), fs.read(...)` slipped past
+      E303 and self-covered via the child manifest; fixed to `continue`,
+      regression fixture committed**). E305 in net/exec/glob positions
+      (`net-star`, `e305-exec-star`, `e305-fs-star`); E301 fs-literal
+      (`uncovered-bang`) and **net-literal (`e301-uncovered-net`, added in
+      audit — the URL-parse branch was otherwise untested)**; E302
+      (`e302-invalid-glob`). Negative runner filters by the expected-error's
+      `phase` field, so `traversal` (phase `guard`) stays inert until Phase 4 —
+      by design, that fixture must *pass* extraction (string-match) and die in
+      the guard's realpath.
+- [x] `tests/capability/rosetta.manifest.golden.json` generated, then
+      hand-reviewed: deferred span [168,192] cross-checked against the
+      hand-reviewed parser AST golden; scoped contains only `fetch_status`
+      (attenuated net + its piped-curl DeferredCheck); top-level
+      `deferredToRuntime` is empty (readFile literal covered, `print!`
+      ambient-skipped). `kitchen-sink.manifest.golden.json` additionally pins
+      deferred-bubbling from an inheriting fn, scoped covered literals,
+      wildcard-net literal coverage, env optional, and reason-string formats
+      (spans verified byte-exact against source offsets).
+- CI gate: green — purity passes, both manifest goldens byte-for-byte, all
+  E3xx negatives exact.
+
+### Phase 3 deviations & decisions
+
+1. **`src/shared/error-schema.ts` split out of `errors.ts`** (user-approved in
+   plan): the zod schema + `PlacitumError` type moved so error *classes* stay
+   runtime-pure (no zod) — the purity closure imports `errors.ts` for
+   `ExtractError`. `errors.ts` re-exports the type only (type-only, erased).
+   Tests import `PlacitumErrorSchema` from `error-schema.js` (3 files updated).
+   Zod validates at trust boundaries (Section 7.3); classes don't need it.
+2. **E303 "strict subset" = ⊆ (equality allowed)** — the Rosetta example
+   attenuates to the identical net token; banning equality would fail its own
+   spec example. Escalation (anything wider) is E303.
+3. **Subset checks are pattern-structural, not string equality:**
+   `globCovers(parent, child)` = segment-recursive language containment for
+   the mini-glob (`**` ≥ 1 segment, `*` in-segment; handles
+   `only(fs.read("/etc/config/*.json"))` under `fs.read("/etc/config/**")`).
+   Net: exact child covered by exact-equal or single-label-matching wildcard
+   parent; a wildcard child (`*.example.com`) is covered ONLY by the identical
+   parent wildcard (strict single-leading-label rule makes `*.example.com ⊄
+   *.com` correct). Env: name membership only — child optionality ignored
+   (privilege is reading the var; absence is E406's runtime job).
+4. **`BANG_REGISTRY` is the single definition of the effectful surface**:
+   `fs.readFile`/`fs.writeFile`/`curl` (relevant arg always `args[0]`).
+   Ambient `print!`/`eprint!` and unknown targets (user fns — grammar permits
+   banging pure fns) are skipped. **Phase 5 must add a sync test: every
+   effectful stdlib name ⊆ registry**, and exec/env bang names get registered
+   when the stdlib defines them (not guessed now — a wrong guess is a silent
+   coverage hole because unknown targets are skipped).
+5. **Piped bang stages (`PipeExpr.stages[i], i≥1`) always defer** (Section 5
+   rule 4): the piped value becomes arg 0 at runtime, so a literal in
+   `args[0]` is the wrong argument to check. Stage 0 bangs check normally.
+6. **net literals:** `curl!("https://host/path")` parses via the WHATWG `URL`
+   global (no I/O) and host-matches the net grants; a literal that isn't an
+   absolute URL defers to runtime. The vm purity context provides `URL` for
+   this reason. Hosts compare case-insensitively.
+7. **Manifest = grants, not call sites.** Arrays mirror `needs` declaration
+   order, no dedup. Statically-proven covered literals are recorded nowhere;
+   `scoped` holds only fns with their own `needs` clause; deferred entries
+   bubble to the scope whose manifest governs them (inheriting fns defer into
+   the enclosing manifest). **Duplicate fn ids: last wins in `scoped`** —
+   Phase 5 should reject redeclaration.
+8. **DeferredCheck reason strings are pinned by the goldens**: piped vs
+   non-literal (`(Identifier \`name\`)` / `(MemberExpr)` / `(absent)`) vs
+   non-absolute-URL — keep the format stable; changing it regolds.
+9. `compileManifest` (Section 7.3) lives in `shared/manifest.ts` with the Zod
+   schemas and is unit-tested; the extractor emits `SerializedManifest` and
+   uses `globToRegex` directly for its static checks. The spec's "extractor
+   calls compileManifest once" is deferred to whoever hands the manifest to
+   the guard (Phase 4 wiring decision; E407's manifest-hash question too).
+
+### Post-phase audit (2026-09-16)
+
+Full re-read of `extractor.ts` against Sections 2.1–2.3 / 5 / 7 / 11 after the
+first green CI, hunting for escapes. Findings, all resolved:
+
+1. **Security bug — E303 checked only the first needs token.**
+   `checkAttenuation`'s switch cases `return`ed inside the token loop, so
+   `fn f() needs only(net("api.example.com")), fs.read("/etc/passwd")` under a
+   parent that never granted fs.read extracted cleanly (and the body's
+   `/etc/passwd` literal then "covered" against the child's own inflated
+   manifest). Fixed to `continue` (src/capability/extractor.ts). Regression
+   fixture `e303-multi-token-escalation` reproduces the escape (verified to
+   extract cleanly before the fix). Also dropped the unused `child` parameter.
+2. **Untested net branch.** The `curl!` literal URL-parse path (E301 +
+   non-URL defer) had only golden coverage on the happy path. Added
+   `e301-uncovered-net` fixture and `tests/capability/extract.test.ts`
+   (non-URL literal defers; attenuated-fn body literal is E301 against the
+   CHILD manifest; inheriting fn passes covered literals with no `scoped`
+   entry).
+3. **Dead code removed:** `assert-never.ts` entry in the purity CLOSURE
+   (nothing in the closure imports it since extractor uses its E304-flavored
+   `unhandled`), and the unused `hostToRegex` re-export from
+   `shared/manifest.ts` (Phase 4 can import from `glob-to-regex.js`).
+4. Verified clean: no `any` / `@ts-ignore` / `@ts-expect-error` anywhere in
+   `src/`; no dependency or config changes; goldens byte-stable; runner
+   pairing/phase-filtering still correct (6 extract-phase fixture pairs).
+
+CI gate after audit: 86/86 green.
+
+## Next: Phase 4 — CapabilityGuard (DoD in Section 11)
+
+Runtime enforcer; the only module besides host-bindings allowed `fs` (scoped
+ESLint override for `fs.realpathSync` only, Section 3). Key notes:
+- Instantiate with the manifest (recompile via `compileManifest` from
+  `shared/manifest.ts`); authorize() canonicalizes BEFORE matching (existing
+  paths via `realpathSync`; new paths canonicalize the parent dir + reject
+  residual `..` in the leaf); returns the already-canonicalized payload
+  (TOCTOU: host-bindings execute byte-identical values).
+- `tests/guard/negative/` fixtures + the `traversal` capability fixture
+  (E403) go live this phase — the negative runner pattern is phase-filtered,
+  so guard fixtures just need `phase: "guard"` expected-errors.
+- Exec targets get the same realpath treatment; net matching per the
+  single-label wildcard rules already in `hostToRegex` (E401/E405/E406 codes).
+- Decide the manifest-hash scheme for E407 when wiring instantiation.
 

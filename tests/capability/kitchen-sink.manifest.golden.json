@@ -1,0 +1,89 @@
+{
+  "net": [
+    {
+      "type": "wildcard",
+      "pattern": "*.example.com"
+    }
+  ],
+  "fsRead": [
+    {
+      "raw": "/data/*.json"
+    }
+  ],
+  "fsWrite": [
+    {
+      "raw": "/out/*"
+    }
+  ],
+  "exec": [
+    {
+      "raw": "/usr/bin/*"
+    }
+  ],
+  "env": [
+    {
+      "name": "HOME",
+      "optional": false
+    },
+    {
+      "name": "DEBUG",
+      "optional": true
+    }
+  ],
+  "scoped": {
+    "save_log": {
+      "net": [],
+      "fsRead": [],
+      "fsWrite": [
+        {
+          "raw": "/out/*"
+        }
+      ],
+      "exec": [],
+      "env": [],
+      "scoped": {},
+      "deferredToRuntime": []
+    },
+    "grab": {
+      "net": [
+        {
+          "type": "wildcard",
+          "pattern": "*.example.com"
+        }
+      ],
+      "fsRead": [],
+      "fsWrite": [],
+      "exec": [],
+      "env": [],
+      "scoped": {},
+      "deferredToRuntime": [
+        {
+          "nodeSpan": [
+            315,
+            322
+          ],
+          "category": "net",
+          "reason": "argument 0 is the piped runtime value (not a compile-time literal)"
+        }
+      ]
+    }
+  },
+  "deferredToRuntime": [
+    {
+      "nodeSpan": [
+        147,
+        166
+      ],
+      "category": "fsWrite",
+      "reason": "argument 0 is not a compile-time string literal (Identifier `name`)"
+    },
+    {
+      "nodeSpan": [
+        392,
+        414
+      ],
+      "category": "fsRead",
+      "reason": "argument 0 is not a compile-time string literal (MemberExpr)"
+    }
+  ]
+}
