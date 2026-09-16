@@ -681,7 +681,7 @@ LLM interaction, so the recompiled regex is always locally trusted, never import
     "plugin:@typescript-eslint/recommended",
     "plugin:@typescript-eslint/recommended-requiring-type-checking"
   ],
-  "ignorePatterns": ["dist/", "scripts/"],
+  "ignorePatterns": ["dist/", "scripts/", "vite.config.ts"],
   "rules": {
     "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-non-null-assertion": "error",
@@ -691,16 +691,15 @@ LLM interaction, so the recompiled regex is always locally trusted, never import
     "no-restricted-imports": [
       "error",
       {
-        "paths": [
-          { "name": "fs", "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "fs/promises", "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "child_process", "message": "Process spawning is only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "net", "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "http", "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "https", "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "os", "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "dgram", "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
-          { "name": "tls", "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." }
+        "patterns": [
+          { "group": ["fs", "node:fs", "fs/*", "node:fs/*"], "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["child_process", "node:child_process"], "message": "Process spawning is only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["net", "node:net"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["http", "node:http"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["https", "node:https"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["os", "node:os"], "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["dgram", "node:dgram"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["tls", "node:tls"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." }
         ]
       }
     ]
@@ -715,12 +714,18 @@ LLM interaction, so the recompiled regex is always locally trusted, never import
       "rules": {
         "no-restricted-imports": [
           "error",
-          { "paths": [
-            { "name": "child_process", "message": "guard.ts may only import 'fs' for realpathSync — no process spawning here." },
-            { "name": "net", "message": "guard.ts may only import 'fs' for realpathSync — no sockets here." },
-            { "name": "http", "message": "guard.ts may only import 'fs' for realpathSync." },
-            { "name": "https", "message": "guard.ts may only import 'fs' for realpathSync." }
-          ] }
+          {
+            "patterns": [
+              { "group": ["child_process", "node:child_process"], "message": "guard.ts may only import 'fs' for realpathSync — no process spawning here." },
+              { "group": ["net", "node:net"], "message": "guard.ts may only import 'fs' for realpathSync — no sockets here." },
+              { "group": ["http", "node:http"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["https", "node:https"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["os", "node:os"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["dgram", "node:dgram"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["tls", "node:tls"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["fs/*", "node:fs/*"], "message": "guard.ts imports fs for realpathSync only — the sync spelling, not fs/promises." }
+            ]
+          }
         ]
       }
     },

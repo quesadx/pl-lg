@@ -1,0 +1,7 @@
+{
+  "code": "E403_GUARD_PATH_TRAVERSAL",
+  "phase": "guard",
+  "severity": "error",
+  "message": "Canonicalization of \"/safe/../evil.txt\" (fsWrite) resolves outside every granted capability.",
+  "hint": "The literal string-matches needs fs.write(\"/safe/**\") statically, so extraction passes; the guard's parent-dir realpath reveals the escape. Request the canonical target explicitly, or remove the traversal."
+}

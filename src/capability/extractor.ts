@@ -14,8 +14,6 @@ import type { DeferredCheck, HostPattern, SerializedManifest } from '../shared/m
 // 7.3). No I/O, ever: glob strings compile to regex here; canonicalizing a
 // concrete runtime path is Phase 4's job.
 
-type EffectCategory = 'net' | 'fsRead' | 'fsWrite' | 'exec';
-
 // The single definition of the effectful bang-call surface (Section 1: every
 // effectful operation is reachable ONLY via BangCall — this registry is that
 // surface). Every other target — ambient print!/eprint! (Section 1: routed
@@ -25,7 +23,9 @@ type EffectCategory = 'net' | 'fsRead' | 'fsWrite' | 'exec';
 // registry; a sync test lands with the stdlib.
 // ponytail: every entry's relevant argument is args[0]; add an index if a
 // stdlib function ever needs another.
-const BANG_REGISTRY: Readonly<Record<string, EffectCategory>> = {
+export type EffectCategory = 'net' | 'fsRead' | 'fsWrite' | 'exec';
+
+export const BANG_REGISTRY: Readonly<Record<string, EffectCategory>> = {
   'fs.readFile': 'fsRead',
   'fs.writeFile': 'fsWrite',
   curl: 'net',
