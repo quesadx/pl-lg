@@ -1,0 +1,3 @@
+#!strict
+# a comment
+let x = 1

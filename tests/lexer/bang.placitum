@@ -1,0 +1,2 @@
+curl!("https://x")
+fs.readFile!("/etc/a.json")

@@ -1,0 +1,13 @@
+[
+{"kind":"LET","line":1,"col":1,"span":[0,3]},
+{"kind":"IDENTIFIER","value":"s","line":1,"col":5,"span":[4,5]},
+{"kind":"ASSIGN","line":1,"col":7,"span":[6,7]},
+{"kind":"STRING","value":"hello\nworld \"q\" \\ end","line":1,"col":9,"span":[8,35]},
+{"kind":"NEWLINE","line":1,"col":36,"span":[35,36]},
+{"kind":"LET","line":2,"col":1,"span":[36,39]},
+{"kind":"IDENTIFIER","value":"e","line":2,"col":5,"span":[40,41]},
+{"kind":"ASSIGN","line":2,"col":7,"span":[42,43]},
+{"kind":"STRING","value":"","line":2,"col":9,"span":[44,46]},
+{"kind":"NEWLINE","line":2,"col":11,"span":[46,47]},
+{"kind":"EOF","line":3,"col":1,"span":[47,47]}
+]

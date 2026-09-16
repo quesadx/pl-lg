@@ -1,0 +1,5 @@
+needs only(env(A))
+let a = true
+if not a { return null } else { return false }
+while a { for x in a { } }
+fn f() { return null }

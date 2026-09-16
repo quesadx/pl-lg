@@ -1,0 +1,7 @@
+{
+  "code": "E105_LEX_INVALID_PRAGMA",
+  "phase": "lex",
+  "severity": "error",
+  "message": "`#!` is only recognized on physical line 1.",
+  "hint": "Move the pragma to the first line, or use `#` for a comment."
+}
