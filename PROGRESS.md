@@ -24,11 +24,13 @@
 | **2 — Parser & AST** | **DONE** | green (2026-09-15) |
 | **3 — Static Capability Extraction** | **DONE** | green (2026-09-16) |
 | **4 — CapabilityGuard** | **DONE** | green (2026-09-16) |
+| **5 — Tree-Walking Evaluator** | **DONE** | green (2026-09-16) |
 
 Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `vitest run`
-(= `npm run ci`). Last verified: 105/105 tests passing (10 phase0 + 16 lexer +
+(= `npm run ci`). Last verified: 140/140 tests passing (10 phase0 + 16 lexer +
 19 parser + 37 capability [19 patterns, 9 extract-negatives, 4 manifest-goldens,
-3 extractor-behavior, 2 purity] + 23 guard [3 negatives, 20 unit]).
+3 extractor-behavior, 2 purity] + 23 guard [3 negatives, 20 unit] + 35 eval
+[3 goldens, 10 negatives, 10 chokepoint, 12 semantics]).
 Test count dropped 110 → 105 in the post-audit refinement: five duplicated
 pairing `it`s were consolidated into the shared fixture loader's throw.
 
@@ -433,30 +435,123 @@ all CI-green:
 Net: -145 lines, -0 deps. Test count 110 → 105: five pairing `it`s became the
 loader's throw, same enforcement (an unpaired fixture still fails CI).
 
-## Next: Phase 5 — Tree-Walking Evaluator (DoD in Section 11)
+## Phase 5 DoD checklist
 
-Visitor interpreter, lexical scoping, closures capture defining env (by
-reference — load-bearing since Phase 2's AssignExpr). Key notes accumulated
-from Phases 2–4:
+- [x] Closures capture their defining environment by reference — and the
+      capability guard is captured lexically with them. Control-flow golden's
+      `make_counter`/`bump` mutates captured `n` across calls (11/12/13).
+- [x] Every effectful stdlib fn is a thin wrapper: args → `guard.authorize` →
+      host binding called with the **authorized** value. `chokepoint.test.ts`
+      spies both sides: the log is `authorize → host` per call, and a guard
+      stub that stamps `canonical:` prefixes proves hosts never receive the raw
+      argument (this also completes Phase 4's TOCTOU test).
+- [x] `print!`/`eprint!` route through the same choke point, unconditionally
+      authorized, no manifest entry, no `needs` (real-guard test).
+- [x] Pipe semantics rules 1 & 2 golden: rosetta has both forms (`url |
+      curl!({...})` prepend-into-args, `fs.readFile!(...) | json.parse` bare
+      stage, `endpoint | fetch_status` user fn); control-flow adds
+      `"mid" | surround("*")` and bang-on-pure-fn `surround!("z", "-")`.
+- [x] `#!strict` runs its whole-program pipe pre-pass before evaluation; a
+      chokepoint test proves E505 fires with captured stdout still empty (the
+      chain's first side effect never ran).
+- [x] Goldens: `rosetta.eval.golden.json` (the exact Section 6 script, fake
+      hosts) + `control-flow.eval.golden.json` (if/else, while+assignment,
+      for, closures, f-strings, both pipe rules, operator/deep-equal/truthiness
+      matrix, top-level `return` stops before "never printed").
+- [x] Negatives E500–E506 (9 fixtures, real evaluation): unbound read/assign,
+      mixed `+`, non-callable, arity, `/0`, strict-pipe, fn + let
+      redeclaration.
+- [x] Sync test: `EFFECTFUL_STDLIB` == `BANG_REGISTRY` keys, ambient names
+      excluded, `BANG_SIGNATURES` ⊇ registry+ambient, every bang implemented.
+- [x] `requireEnv(env)` once per run in `runSource`; runtime E406 covered
+      end-to-end; attenuated `needs only(...)` fn denies at runtime via
+      `forScope` (E401 test) even when the parent granted the host.
+- CI gate: green — 137/137, all E5xx exact.
 
-- **Stdlib wrapper shape:** resolve args → `CapabilityGuard.authorize` → call
-  `/host-bindings` with the **returned canonical value**, never the original
-  argument (TOCTOU, Section 2.2 step 6). Spy test: no host-binding entry
-  point is reachable without an intervening `authorize` call — this also
-  completes Phase 4's TOCTOU test.
-- **Sync test:** every effectful stdlib name ⊆ `BANG_REGISTRY` (now
-  exported); register env bang names when the stdlib actually defines them.
-- **`print!`/`eprint!`:** route through the choke point but unconditionally
-  authorized (Section 1) — the guard needs an ambient path when the stdlib
-  lands; no manifest entry, no `needs`.
-- **Scope wiring:** a fn with its own `needs` uses `guard.forScope(id)`
-  (plain Error on missing id = wiring bug); inheriting fns use the enclosing
-  guard. `requireEnv(process.env)` once per run before evaluation.
-- **E407** manifest-hash scheme: decide when the evaluator/CLI actually
-  wires instantiation.
-- Reject duplicate `fn` redeclaration (Phase 3 let last-win in `scoped`).
-- Assignment writes the nearest enclosing scope holding the binding, else
-  E500; `#!strict` pipe-chain type pre-pass before first side effect
-  (E501/E505); negatives E500–E505 will need real evaluation in the runner,
-  not Phase 4's literal-arg harness.
+### Phase 5 deviations & decisions
+
+1. **Bangs receive the lexical guard at the call site (user-ratified fix).**
+   First implementation built stdlib wrappers once over the top-level guard, so
+   a `fn needs only(...)` body still authorized against the top manifest — the
+   attenuation E401 test caught it. `buildStdlib(hosts)` now returns
+   `BangFn = (guard, args)` and the evaluator threads the current lexical
+   guard through evaluation; `Closure` captures `declGuard` + `attenuated`,
+   swapping to `declGuard.forScope(fnId)` for its own `needs` clause. Matches
+   the extractor's lexical walk exactly.
+2. **`E506_EVAL_REDECLARATION` added** (user-approved; Section 9.2 catalog +
+   appendix updated, Phase 5 DoD now says E500–E506). Required because
+   `scoped` is keyed by fn id: a closure captured before a redeclaration would
+   run against the *later* fn's attenuated manifest. Same-scope `let`/`fn`
+   redeclare → E506; inner-scope shadowing stays legal (top-level `let json`
+   collides with the stdlib global and is E506 too — consistent, fail-closed).
+3. **Sync HTTP via one-shot subprocess** (user-approved): `execFileSync(
+   process.execPath, ['--input-type=module', '-e', <tiny global-fetch
+   script>])`, 30s timeout, output `{status, body}`. Failures wrap to E501.
+   ponytail: one process per request; swap for an in-process Atomics bridge if
+   volume matters. The localhost integration test runs its HTTP server in a
+   **child process** — an in-process server deadlocks (execFileSync blocks the
+   test process's event loop) and was the first run's 30s ETIMEDOUT.
+4. **E501 is the eval runtime-error umbrella** for host failures (ENOENT,
+   fetch failure, invalid JSON): no dedicated E-code exists; message names the
+   operation and the hint says it was authorized (host failure, not denial).
+5. **Semantic defaults (user-approved, all ponytail-commented in code):**
+   `curl!` → `{status, body}`, options `{method?, body?}` GET default; JS-like
+   truthiness; structural `==`; missing member → `null` (prototype chain never
+   consulted); `+` num/num or str/str only; comparisons numbers only; `for`
+   over arrays only; assignment expression yields the value; top-level
+   `return` stops the program; `/0` → E504.
+6. **Goldens run the permissive stub guard** (user-approved): rosetta's
+   `/etc/config` + `api.example.com` grants would be platform-dependent under
+   the real guard (macOS `/etc → /private/etc`). Real-guard behavior is
+   covered separately with `realpathSync(tmpdir)` grants and a `127.0.0.1`
+   fetch integration.
+7. **Effectful names are never bound in the environment.** Only the pure
+   `json` namespace is a global; `fs.readFile`/`curl`/`print` are reachable
+   solely through `ctx.bangs` dispatch, so a plain `CallExpr` on them is E500
+   by construction (Section 1 invariant held structurally, not by convention).
+   Bang target resolution checks the effectful table first, then the env
+   (pure fns may be banged; `json.parse!` resolves through the namespace).
+8. **Strict pre-pass is pipe-chains-only** (per DoD): literals, bang/callee
+   signatures (`BANG_SIGNATURES`, `PURE_SIGNATURES`), f-strings, arrays,
+   objects, arithmetic/comparison results; identifiers/members are `unknown`
+   and never a rejection reason. Runs over all statements before evaluation.
+9. **E407 still deferred** (no provenance hash wired anywhere; revisit with
+   the Phase 9 CLI instantiation). No `env.get` bang exists, so no env bang
+   names were registered (Phase 3 decision 4 honored).
+10. **New files:** `src/shared/values.ts`, `src/evaluator/interpreter.ts`,
+    `src/evaluator/run.ts`, `src/stdlib/stdlib.ts`,
+    `src/host-bindings/index.ts`; `EvalError` + `Guard` interface + ambient
+    request kind added to existing shared/capability modules.
+    Known ceiling: unbounded recursion is a raw RangeError (no depth limit);
+    add one if a script ever needs it.
+
+### Post-phase bug fixes (2026-09-16)
+
+Adversarial probing of Phase 5 scripts surfaced two latent bugs (pre-existing,
+both fixed with regression coverage; gate 140/140 after):
+
+1. **Parser: `primaryParenthesized` was sticky.** After any parenthesized
+   primary earlier in the file, every later bang call failed E205 —
+   `let x = (1 + 2)` followed by `print!(x)` would not parse. The flag is now
+   reset per primary; `(x).y!(...)` still E205 (fixture unchanged).
+   Regression: control-flow golden gained a paren expression + bang line.
+2. **Prototype-chain lookups on source-keyed plain objects.** `KEYWORDS` in the
+   lexer returned `Object.prototype.constructor` for the identifier
+   `constructor` (same for `toString`/`hasOwnProperty`/`__proto__`) — a
+   garbage-kind token, surfacing as E104. `BANG_REGISTRY` (extractor),
+   `ctx.bangs` + the signature tables (interpreter) and `manifest.scoped`
+   (guard) had the same leak; the extractor's `scoped` map is now
+   null-prototype so `fn __proto__() needs ...` cannot mutate its prototype.
+   All lookups use `Object.hasOwn`. Regression: control-flow golden identifiers
+   `constructor`/`valueOf` + `{ __proto__: 5 }` literal; real-guard chokepoint
+   test with `fn constructor() needs only(...)` and `fn __proto__()
+   needs only(...)`; E502 semantics cases for `constructor!`/`__proto__!`.
+
+## Next: Phase 6 — `placitum explain` (DoD in Section 11)
+
+`CapabilityManifest → Stdout String`, zero I/O, purity smoke test analogous to
+Phase 3's, statically-proven grants visually separated from
+`deferredToRuntime`, `tests/explain/rosetta.explain.golden.txt`. Phase 5
+leaves the manifest pipeline (`extract` → `compileManifest`) ready to consume;
+the explain renderer must not re-derive anything, only read the manifest.
 

@@ -459,7 +459,9 @@ class Lexer {
       this.advance();
     }
     const text = this.source.slice(start, this.pos);
-    const keyword = KEYWORDS[text];
+    // hasOwn: a plain-object table would leak Object.prototype members, so an
+    // identifier like `constructor`/`toString` would lex as a garbage "keyword".
+    const keyword = Object.hasOwn(KEYWORDS, text) ? KEYWORDS[text] : undefined;
     if (keyword !== undefined) {
       this.push(keyword, start, line, col);
     } else {

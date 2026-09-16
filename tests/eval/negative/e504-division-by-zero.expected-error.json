@@ -1,0 +1,7 @@
+{
+  "code": "E504_EVAL_DIVISION_BY_ZERO",
+  "phase": "eval",
+  "severity": "error",
+  "message": "division by zero.",
+  "hint": "Guard the divisor before dividing."
+}

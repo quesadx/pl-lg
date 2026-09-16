@@ -1,0 +1,9 @@
+fn f(a) {
+    return a
+}
+
+fn f(b) {
+    return b
+}
+
+print!(f(1))

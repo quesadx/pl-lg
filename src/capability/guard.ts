@@ -15,7 +15,19 @@ export type GuardRequest =
   | { category: 'net'; url: string }
   | { category: 'fsRead'; path: string }
   | { category: 'fsWrite'; path: string }
-  | { category: 'exec'; path: string };
+  | { category: 'exec'; path: string }
+  // Section 1: print!/eprint! still route through this one choke point (so the
+  // Phase 8 audit log stays complete) but are unconditionally authorized and
+  // never appear in a manifest.
+  | { category: 'ambient-write'; text: string; stream: 'stdout' | 'stderr' };
+
+// The evaluator and stdlib depend on this interface, not the concrete class,
+// so tests can inject stubs without realpath/fs behavior.
+export interface Guard {
+  authorize(request: GuardRequest): string;
+  forScope(fnId: string): Guard;
+  requireEnv(env: Record<string, string | undefined>): void;
+}
 
 type PathCategory = 'fsRead' | 'fsWrite' | 'exec';
 
@@ -40,7 +52,7 @@ function canonicalizeExisting(path: string): string {
   }
 }
 
-export class CapabilityGuard {
+export class CapabilityGuard implements Guard {
   private readonly manifest: CapabilityManifest;
 
   constructor(manifest: CapabilityManifest) {
@@ -57,6 +69,8 @@ export class CapabilityGuard {
         return this.authorizeWrite(request.path);
       case 'exec':
         return this.authorizePath(request.path, this.manifest.exec, 'E405_GUARD_EXEC_DENIED', 'exec');
+      case 'ambient-write':
+        return request.text; // Section 1: the invoking process's own terminal is always writable
       default:
         return assertNever(request);
     }
@@ -66,7 +80,9 @@ export class CapabilityGuard {
   // (Section 2.3); inheriting fns keep using the enclosing guard. Missing id
   // is an internal wiring error, never a capability denial.
   forScope(fnId: string): CapabilityGuard {
-    const child = this.manifest.scoped[fnId];
+    // hasOwn: scoped is keyed by source-controlled fn ids; a plain index would
+    // return Object.prototype members for names like `constructor`.
+    const child = Object.hasOwn(this.manifest.scoped, fnId) ? this.manifest.scoped[fnId] : undefined;
     if (child === undefined) {
       throw new Error(
         `no scoped manifest for fn "${fnId}" — forScope() is only valid for fns with their own needs clause`,
