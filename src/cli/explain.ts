@@ -1,6 +1,7 @@
 import type { SerializedManifest } from '../shared/manifest.js';
 import { SerializedCapabilityManifestSchema } from '../shared/manifest.js';
 import { CliError } from '../shared/errors.js';
+import { printable } from '../shared/printable.js';
 
 // Phase 6 (Section 11) — SerializedCapabilityManifest -> stdout string, zero
 // I/O. The renderer is read-only over the manifest the extractor published
@@ -9,19 +10,6 @@ import { CliError } from '../shared/errors.js';
 
 const GRANT_LABEL_WIDTH = 10;
 const CATEGORY_LABEL_WIDTH = 9;
-
-// Manifest strings can legally contain control characters (`\n` is a source
-// string escape, so the extractor can publish one; Phase 7 manifests are
-// untrusted JSON). Rendered raw, they would inject lines indistinguishable
-// from genuine grant lines into the transparency surface — escape any
-// control-bearing value instead of trusting it.
-function printable(value: string): string {
-  for (const char of value) {
-    const code = char.charCodeAt(0);
-    if (code < 0x20 || code === 0x7f) return JSON.stringify(value);
-  }
-  return value;
-}
 
 // Every category is always shown; `(none)` is an explicit claim, not an
 // omission. Values render verbatim from the manifest — raw patterns, no

@@ -87,3 +87,11 @@ export const hostBindings: HostBindings = {
     process.stderr.write(text);
   },
 };
+
+// CLI harness I/O: reads the script file the user pointed placitum at. This is
+// not a script capability (no bang, absent from every manifest, no guard call)
+// — it is the CLI reading its own input, like node reading a .js file. Errors
+// stay raw (unwrapped) so the CLI can map them to E601_CLI_FILE_NOT_FOUND.
+export function readSourceFile(path: string): string {
+  return readFileSync(path, 'utf8');
+}
