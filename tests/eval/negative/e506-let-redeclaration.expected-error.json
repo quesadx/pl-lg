@@ -1,0 +1,7 @@
+{
+  "code": "E506_EVAL_REDECLARATION",
+  "phase": "eval",
+  "severity": "error",
+  "message": "let `x` is already declared in this scope.",
+  "hint": "Rename one binding; inner scopes may shadow, the same scope may not."
+}

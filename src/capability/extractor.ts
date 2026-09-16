@@ -113,7 +113,17 @@ function addToken(token: CapabilityToken, scope: Scope): void {
 }
 
 function buildScope(tokens: readonly CapabilityToken[]): Scope {
-  const scope: Scope = { net: [], fsRead: [], fsWrite: [], exec: [], env: [], scoped: {}, deferred: [] };
+  // Null prototype: `scoped` is keyed by source-controlled fn ids, so `id` could
+  // be `__proto__` — a plain object would mutate its own prototype on assignment.
+  const scope: Scope = {
+    net: [],
+    fsRead: [],
+    fsWrite: [],
+    exec: [],
+    env: [],
+    scoped: Object.create(null) as Record<string, SerializedManifest>,
+    deferred: [],
+  };
   for (const token of tokens) addToken(token, scope);
   return scope;
 }
@@ -186,7 +196,9 @@ function describeArg(arg: Expr | undefined): string {
 
 // Static check of one (non-piped) bang call against the in-scope grants.
 function checkBangCall(bang: { target: string; args: readonly Expr[]; line: number; col: number; span: readonly [number, number] }, scope: Scope): void {
-  const category = BANG_REGISTRY[bang.target];
+  // hasOwn: the target is source-controlled, and a plain-object table would
+  // return Object.prototype members for names like `constructor`.
+  const category = Object.hasOwn(BANG_REGISTRY, bang.target) ? BANG_REGISTRY[bang.target] : undefined;
   if (category === undefined) return; // ambient or user-fn — nothing to extract
   const arg = bang.args[0];
   if (arg === undefined || arg.kind !== 'StringLiteral') {

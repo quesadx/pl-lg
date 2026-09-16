@@ -1,0 +1,7 @@
+{
+  "code": "E500_EVAL_UNBOUND_VAR",
+  "phase": "eval",
+  "severity": "error",
+  "message": "identifier `missing_name` is not declared in any enclosing scope.",
+  "hint": "Declare it with `let` before use."
+}

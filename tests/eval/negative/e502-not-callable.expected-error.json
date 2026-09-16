@@ -1,0 +1,7 @@
+{
+  "code": "E502_EVAL_NOT_CALLABLE",
+  "phase": "eval",
+  "severity": "error",
+  "message": "value of type number is not callable.",
+  "hint": "Only functions and closures can be called."
+}

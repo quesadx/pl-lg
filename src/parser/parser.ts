@@ -788,6 +788,9 @@ class Parser {
 
   private parsePrimary(): Expr {
     const t = this.tok();
+    // Reset per primary: only the LPAREN case sets it, and a stale `true` from
+    // an earlier statement would reject every later bang call with E205.
+    this.primaryParenthesized = false;
     switch (t.kind) {
       case 'IDENTIFIER': {
         this.consume();

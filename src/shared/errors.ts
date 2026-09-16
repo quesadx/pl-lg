@@ -66,3 +66,9 @@ export class CapabilityViolationError extends PlacitumErrorBase {
     super({ ...init, phase: 'guard' });
   }
 }
+
+export class EvalError extends PlacitumErrorBase {
+  constructor(init: Omit<PlacitumErrorInit, 'phase'>) {
+    super({ ...init, phase: 'eval' });
+  }
+}

@@ -856,6 +856,7 @@ directory instead.
 | `E503_EVAL_ARITY_MISMATCH` | Wrong argument count for a user-defined `fn`. |
 | `E504_EVAL_DIVISION_BY_ZERO` | Self-explanatory. |
 | `E505_EVAL_PIPE_TYPE_ERROR` | `#!strict` pre-pass rejected a pipe stage's inferred type. |
+| `E506_EVAL_REDECLARATION` | A `let`/`fn` name redeclared in the same lexical scope (shadowing in an inner scope remains legal). |
 | `E601_CLI_FILE_NOT_FOUND` | Input script path doesn't exist. |
 | `E602_CLI_INVALID_FLAG` | Unrecognized CLI flag/subcommand. |
 | `E603_EXPLAIN_RENDER_FAILURE` | Malformed manifest passed to the (otherwise I/O-free) `explain` renderer. |
@@ -999,7 +1000,7 @@ until Phase N's CI Gate below is fully green.**
   - [ ] Pipe semantics (Section 5, rules 1–2) are implemented exactly as specified; both forms are covered by golden tests.
   - [ ] `#!strict` runs its type-inference pre-pass over the whole pipe chain before any evaluation begins — a test proves a type error later in a chain is caught before the chain's first side effect runs.
   - [ ] Golden eval-output tests for the Rosetta Stone example and each control-flow construct.
-  - [ ] Negative tests cover `E500`–`E505`.
+  - [ ] Negative tests cover `E500`–`E506`.
 - **CI Gate:** all eval goldens and `E5xx` negatives pass.
 
 ### Phase 6 — `placitum explain`
@@ -1051,3 +1052,4 @@ until Phase N's CI Gate below is fully green.**
 | No stated rule preventing effectful stdlib functions from being called without `!` | Would break Phase 3's "scan for `BangCall`" coverage claim | Made explicit invariant: effectful operations are reachable *only* via `BangCall` syntax (Section 1). |
 | No guidance on `print!`/stdout | Ambiguous whether output needs a capability | Declared ambient/always-authorized, still routed through the choke point for `rewind` completeness (Section 1). |
 | `AssignExpr` present in the Section 7.1 union, but no grammar production for it | The parser could never produce it, making the Phase 2 DoD ("every interface in Section 7.1 is producible") unsatisfiable — and the language had no way to reassign variables, so `while` loops could not mutate accumulators | Added `AssignExpr ::= IDENTIFIER "=" AssignExpr | PipeExpr` (lowest precedence, right-associative, bare-identifier target) to Section 4. `let` remains the only binder; assignment writes the nearest enclosing scope holding the binding, else `E500` (evaluator semantics, Phase 5). User-approved during Phase 2. |
+| No error code for same-scope redeclaration. Phase 3's extractor keys `scoped` manifests by fn id, last-wins, so a closure captured before a redeclaration would execute its body under the *later* fn's attenuated manifest — an id-collision hole | Added `E506_EVAL_REDECLARATION` (Section 9.2): same-scope `let`/`fn` redeclaration is a Phase 5 error; shadowing in an inner scope stays legal. User-approved during Phase 5. |

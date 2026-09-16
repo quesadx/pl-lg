@@ -1,0 +1,8 @@
+{
+  "stdout": [
+    "status=200 config=app",
+    "https://api.example.com/one -> 200",
+    "https://api.example.com/two -> 200"
+  ],
+  "stderr": []
+}
