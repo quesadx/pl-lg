@@ -1,0 +1,5 @@
+needs net("api.example.com")
+
+fn fetch(url) needs only(net("evil.com")) {
+    return url | curl!()
+}

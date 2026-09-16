@@ -1,0 +1,7 @@
+{
+  "code": "E204_PARSE_INVALID_CAPABILITY_TOKEN",
+  "phase": "parse",
+  "severity": "error",
+  "message": "Unknown capability `frob`.",
+  "hint": "Valid capabilities: fs.read, fs.write, net, exec, env, only."
+}

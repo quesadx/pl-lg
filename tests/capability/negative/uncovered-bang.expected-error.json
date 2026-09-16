@@ -1,0 +1,7 @@
+{
+  "code": "E301_EXTRACT_UNCOVERED_CAPABILITY",
+  "phase": "extract",
+  "severity": "error",
+  "message": "fs.readFile!(\"/etc/passwd\") has a compile-time-literal target that no in-scope needs token covers.",
+  "hint": "Add needs fs.read(\"/etc/passwd\") at the top of the script, or delete the call."
+}

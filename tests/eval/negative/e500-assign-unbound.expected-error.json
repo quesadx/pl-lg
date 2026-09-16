@@ -1,0 +1,7 @@
+{
+  "code": "E500_EVAL_UNBOUND_VAR",
+  "phase": "eval",
+  "severity": "error",
+  "message": "assignment to `unknown_target` finds no declared binding in any enclosing scope.",
+  "hint": "`=` only reassigns existing bindings; declare it with `let` first."
+}

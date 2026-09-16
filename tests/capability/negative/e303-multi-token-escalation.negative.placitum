@@ -1,0 +1,6 @@
+needs net("api.example.com")
+
+fn f(u) needs only(net("api.example.com")), fs.read("/etc/passwd") {
+    let x = fs.readFile!("/etc/passwd")
+    return x
+}

@@ -1,0 +1,80 @@
+fn make_counter(start) {
+    let n = start
+
+    fn bump() {
+        n = n + 1
+        return n
+    }
+
+    return bump
+}
+
+let tick = make_counter(10)
+print!(tick())
+print!(tick())
+print!(f"tick={tick()}")
+
+fn surround(s, ch) {
+    return ch + s + ch
+}
+
+print!("mid" | surround("*"))
+print!(surround!("z", "-"))
+
+let parsed = "{\"ok\": true, \"n\": 3}" | json.parse
+print!(parsed.ok)
+print!(parsed.n)
+
+let nums = [3, 1, 4]
+let total = 0
+for n in nums {
+    total = total + n
+}
+print!(f"total={total}")
+
+let i = 0
+while i < 3 {
+    print!(f"i={i}")
+    i = i + 1
+}
+
+if total > 7 {
+    print!("big")
+} else {
+    print!("small")
+}
+
+if 0 {
+    print!("zero-truthy")
+} else {
+    print!("zero-falsy")
+}
+
+let config = { name: "app", enabled: true, tags: ["x", "y"] }
+print!(config.name)
+print!(config.missing)
+print!(config.enabled && total == 8 || false)
+print!(not config.enabled)
+print!(-5 + 2)
+print!(10 / 4)
+print!(7 - 2 * 3)
+print!(1 < 2 && 3 >= 3)
+print!("a" == "a")
+print!([1, 2] == [1, 2])
+print!(config.tags == ["x", "y"])
+print!(null == null)
+print!(1 != 2)
+print!(f"n={parsed.n} total={total}")
+
+let paren = (1 + 2)
+print!(paren)
+
+let constructor = 40
+let valueOf = 2
+print!(constructor + valueOf)
+
+let proto_obj = { __proto__: 5 }
+print!(proto_obj.__proto__)
+
+return
+print!("never printed")

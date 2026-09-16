@@ -1,0 +1,1 @@
+let passwd = fs.readFile!("/etc/passwd")

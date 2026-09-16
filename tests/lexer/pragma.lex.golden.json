@@ -1,0 +1,10 @@
+[
+{"kind":"PRAGMA","value":"strict","line":1,"col":1,"span":[0,8]},
+{"kind":"NEWLINE","line":1,"col":9,"span":[8,21]},
+{"kind":"LET","line":3,"col":1,"span":[21,24]},
+{"kind":"IDENTIFIER","value":"x","line":3,"col":5,"span":[25,26]},
+{"kind":"ASSIGN","line":3,"col":7,"span":[27,28]},
+{"kind":"NUMBER","value":1,"line":3,"col":9,"span":[29,30]},
+{"kind":"NEWLINE","line":3,"col":10,"span":[30,31]},
+{"kind":"EOF","line":4,"col":1,"span":[31,31]}
+]

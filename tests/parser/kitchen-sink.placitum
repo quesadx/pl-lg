@@ -1,0 +1,60 @@
+#!strict
+needs fs.write("/tmp/out/*.log"), exec("/usr/bin/*"), env(HOME?)
+needs net("db.internal")
+
+let total = 0
+let i = 3
+while i > 0 {
+    total = total + i
+    i = i - 1
+}
+
+fn add(a, b) {
+    return (a + b) * 2
+}
+
+fn nothing() {
+    return
+}
+
+let summed = add(
+    1,
+    2
+)
+let neg = -summed * 2
+let prec = 1 + 2 * 3 == 7 && not false | upper
+let arith = 10 - 4 / 2 - 1
+let logic = not i == total
+let cmp = i < total || 3 >= 4
+let cmp2 = i != total && 2 <= 3
+
+let empty = []
+let nested = [[1, 2], [3, [4]], []]
+let multi = [
+    1,
+    2,
+    3
+]
+
+let obj = { method: "POST", retries: 2, nested: { deep: true, off: false, nothing: null } }
+let blank = {}
+
+let a = 0
+let b = 0
+a = b = 9
+
+let msg = f"n={total}, ok={not false}\n"
+let lead = f"sum: {total}"
+let chained = "x" | upper | wrap(3)
+
+if total > 3 {
+    let level = "high"
+} else if total > 1 {
+    let level = "mid"
+} else {
+    let level = "low"
+}
+
+for item in multi {
+    total = total + item
+}

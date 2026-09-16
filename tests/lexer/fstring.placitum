@@ -1,0 +1,2 @@
+let a = f"hi {name}!"
+let b = f"{ {x: 1}.x } \{esc\}"

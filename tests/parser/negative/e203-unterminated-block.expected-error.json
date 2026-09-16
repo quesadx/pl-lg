@@ -1,0 +1,7 @@
+{
+  "code": "E203_PARSE_UNTERMINATED_BLOCK",
+  "phase": "parse",
+  "severity": "error",
+  "message": "Block is not closed with `}` before end of input.",
+  "hint": "Add the missing `}`."
+}

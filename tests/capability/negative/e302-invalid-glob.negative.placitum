@@ -1,0 +1,3 @@
+needs fs.read("a**b")
+
+let x = 1

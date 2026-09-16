@@ -1,0 +1,7 @@
+{
+  "code": "E505_EVAL_PIPE_TYPE_ERROR",
+  "phase": "eval",
+  "severity": "error",
+  "message": "strict pipe-chain check: stage 2 (json.parse) expects string as its first argument, but stage 1 (print!) produces null.",
+  "hint": "Fix the chain so the piped value matches each stage's first parameter, or drop #!strict."
+}

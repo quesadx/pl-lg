@@ -1,0 +1,7 @@
+{
+  "code": "E501_EVAL_TYPE_MISMATCH",
+  "phase": "eval",
+  "severity": "error",
+  "message": "operator \"+\" cannot combine number and string.",
+  "hint": "Both operands must be numbers, or both strings."
+}

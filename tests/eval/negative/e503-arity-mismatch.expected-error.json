@@ -1,0 +1,7 @@
+{
+  "code": "E503_EVAL_ARITY_MISMATCH",
+  "phase": "eval",
+  "severity": "error",
+  "message": "fn `f` expects 1 argument(s), got 2.",
+  "hint": "Match the FnDecl parameter list."
+}

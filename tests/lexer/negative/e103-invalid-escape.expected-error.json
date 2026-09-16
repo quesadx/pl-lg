@@ -1,0 +1,7 @@
+{
+  "code": "E103_LEX_INVALID_ESCAPE",
+  "phase": "lex",
+  "severity": "error",
+  "message": "Unknown escape sequence \\q.",
+  "hint": "Valid escapes are \\n, \\t, \\r, \\\\, \\\"."
+}

@@ -1,0 +1,7 @@
+{
+  "code": "E201_PARSE_UNEXPECTED_TOKEN",
+  "phase": "parse",
+  "severity": "error",
+  "message": "Unexpected token `end of line`.",
+  "hint": "Expected an expression."
+}

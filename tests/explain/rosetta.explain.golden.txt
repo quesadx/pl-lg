@@ -1,0 +1,22 @@
+grants (statically proven):
+  fs.read   /etc/config/*.json
+  fs.write  (none)
+  exec      (none)
+  net       api.example.com
+  env       API_KEY (required)
+
+fn fetch_status (attenuated needs only(...)):
+  grants (statically proven):
+    fs.read   (none)
+    fs.write  (none)
+    exec      (none)
+    net       api.example.com
+    env       (none)
+
+  deferred to runtime:
+    net      [168..192]  argument 0 is the piped runtime value (not a compile-time literal)
+
+deferred to runtime:
+  (none)
+
+note: path grants match the canonicalized path (symlinks and .. are resolved before matching)

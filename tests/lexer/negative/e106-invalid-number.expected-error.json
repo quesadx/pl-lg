@@ -1,0 +1,7 @@
+{
+  "code": "E106_LEX_INVALID_NUMBER",
+  "phase": "lex",
+  "severity": "error",
+  "message": "Malformed numeric literal.",
+  "hint": "Use digits with an optional single decimal point, e.g. 42 or 3.14."
+}

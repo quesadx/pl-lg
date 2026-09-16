@@ -1,0 +1,30 @@
+{
+  "name": "placitum",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capability-secure shell language",
+  "bin": {
+    "placitum": "dist/cli/bin.js"
+  },
+  "scripts": {
+    "check-deps": "node scripts/check-deps.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "ci": "npm run check-deps && npm run typecheck && npm run lint && npm run build && npm run test"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "8.57.1",
+    "typescript": "~5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

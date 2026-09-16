@@ -1,0 +1,619 @@
+{
+  "kind": "Program",
+  "line": 1,
+  "col": 1,
+  "span": [
+    0,
+    597
+  ],
+  "pragmas": [
+    "strict"
+  ],
+  "needs": [
+    {
+      "kind": "NeedsDecl",
+      "line": 3,
+      "col": 1,
+      "span": [
+        10,
+        83
+      ],
+      "tokens": [
+        {
+          "kind": "FsReadCapability",
+          "line": 3,
+          "col": 7,
+          "span": [
+            16,
+            45
+          ],
+          "pattern": "/etc/config/*.json"
+        },
+        {
+          "kind": "NetCapability",
+          "line": 3,
+          "col": 38,
+          "span": [
+            47,
+            69
+          ],
+          "pattern": "api.example.com"
+        },
+        {
+          "kind": "EnvCapability",
+          "line": 3,
+          "col": 62,
+          "span": [
+            71,
+            83
+          ],
+          "name": "API_KEY",
+          "optional": false
+        }
+      ]
+    }
+  ],
+  "body": [
+    {
+      "kind": "FnDecl",
+      "line": 5,
+      "col": 1,
+      "span": [
+        85,
+        214
+      ],
+      "id": "fetch_status",
+      "params": [
+        {
+          "kind": "Param",
+          "line": 5,
+          "col": 17,
+          "span": [
+            101,
+            104
+          ],
+          "id": "url"
+        }
+      ],
+      "needs": {
+        "kind": "NeedsDecl",
+        "line": 5,
+        "col": 22,
+        "span": [
+          106,
+          140
+        ],
+        "tokens": [
+          {
+            "kind": "OnlyCapability",
+            "line": 5,
+            "col": 28,
+            "span": [
+              112,
+              140
+            ],
+            "inner": {
+              "kind": "NetCapability",
+              "line": 5,
+              "col": 33,
+              "span": [
+                117,
+                139
+              ],
+              "pattern": "api.example.com"
+            }
+          }
+        ]
+      },
+      "body": {
+        "kind": "Block",
+        "line": 5,
+        "col": 57,
+        "span": [
+          141,
+          214
+        ],
+        "body": [
+          {
+            "kind": "LetStmt",
+            "line": 6,
+            "col": 5,
+            "span": [
+              147,
+              192
+            ],
+            "id": "response",
+            "init": {
+              "kind": "PipeExpr",
+              "line": 6,
+              "col": 20,
+              "span": [
+                162,
+                192
+              ],
+              "stages": [
+                {
+                  "kind": "Identifier",
+                  "line": 6,
+                  "col": 20,
+                  "span": [
+                    162,
+                    165
+                  ],
+                  "name": "url"
+                },
+                {
+                  "kind": "BangCall",
+                  "line": 6,
+                  "col": 26,
+                  "span": [
+                    168,
+                    192
+                  ],
+                  "target": "curl",
+                  "args": [
+                    {
+                      "kind": "ObjectLiteral",
+                      "line": 6,
+                      "col": 32,
+                      "span": [
+                        174,
+                        191
+                      ],
+                      "properties": [
+                        {
+                          "kind": "ObjectProperty",
+                          "line": 6,
+                          "col": 34,
+                          "span": [
+                            176,
+                            189
+                          ],
+                          "key": "method",
+                          "value": {
+                            "kind": "StringLiteral",
+                            "line": 6,
+                            "col": 42,
+                            "span": [
+                              184,
+                              189
+                            ],
+                            "value": "GET"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "kind": "ReturnStmt",
+            "line": 7,
+            "col": 5,
+            "span": [
+              197,
+              212
+            ],
+            "argument": {
+              "kind": "Identifier",
+              "line": 7,
+              "col": 12,
+              "span": [
+                204,
+                212
+              ],
+              "name": "response"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 10,
+      "col": 1,
+      "span": [
+        216,
+        278
+      ],
+      "id": "config",
+      "init": {
+        "kind": "PipeExpr",
+        "line": 10,
+        "col": 14,
+        "span": [
+          229,
+          278
+        ],
+        "stages": [
+          {
+            "kind": "BangCall",
+            "line": 10,
+            "col": 14,
+            "span": [
+              229,
+              265
+            ],
+            "target": "fs.readFile",
+            "args": [
+              {
+                "kind": "StringLiteral",
+                "line": 10,
+                "col": 27,
+                "span": [
+                  242,
+                  264
+                ],
+                "value": "/etc/config/app.json"
+              }
+            ]
+          },
+          {
+            "kind": "MemberExpr",
+            "line": 10,
+            "col": 53,
+            "span": [
+              268,
+              278
+            ],
+            "object": {
+              "kind": "Identifier",
+              "line": 10,
+              "col": 53,
+              "span": [
+                268,
+                272
+              ],
+              "name": "json"
+            },
+            "property": "parse"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "IfStmt",
+      "line": 12,
+      "col": 1,
+      "span": [
+        280,
+        472
+      ],
+      "test": {
+        "kind": "MemberExpr",
+        "line": 12,
+        "col": 4,
+        "span": [
+          283,
+          297
+        ],
+        "object": {
+          "kind": "Identifier",
+          "line": 12,
+          "col": 4,
+          "span": [
+            283,
+            289
+          ],
+          "name": "config"
+        },
+        "property": "enabled"
+      },
+      "consequent": {
+        "kind": "Block",
+        "line": 12,
+        "col": 19,
+        "span": [
+          298,
+          424
+        ],
+        "body": [
+          {
+            "kind": "LetStmt",
+            "line": 13,
+            "col": 5,
+            "span": [
+              304,
+              363
+            ],
+            "id": "result",
+            "init": {
+              "kind": "CallExpr",
+              "line": 13,
+              "col": 18,
+              "span": [
+                317,
+                363
+              ],
+              "callee": {
+                "kind": "Identifier",
+                "line": 13,
+                "col": 18,
+                "span": [
+                  317,
+                  329
+                ],
+                "name": "fetch_status"
+              },
+              "args": [
+                {
+                  "kind": "StringLiteral",
+                  "line": 13,
+                  "col": 31,
+                  "span": [
+                    330,
+                    362
+                  ],
+                  "value": "https://api.example.com/status"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "ExprStmt",
+            "line": 14,
+            "col": 5,
+            "span": [
+              368,
+              422
+            ],
+            "expression": {
+              "kind": "BangCall",
+              "line": 14,
+              "col": 5,
+              "span": [
+                368,
+                422
+              ],
+              "target": "print",
+              "args": [
+                {
+                  "kind": "FStringExpr",
+                  "line": 14,
+                  "col": 12,
+                  "span": [
+                    375,
+                    421
+                  ],
+                  "parts": [
+                    "status=",
+                    {
+                      "kind": "MemberExpr",
+                      "line": 14,
+                      "col": 22,
+                      "span": [
+                        385,
+                        398
+                      ],
+                      "object": {
+                        "kind": "Identifier",
+                        "line": 14,
+                        "col": 22,
+                        "span": [
+                          385,
+                          391
+                        ],
+                        "name": "result"
+                      },
+                      "property": "status"
+                    },
+                    " config=",
+                    {
+                      "kind": "MemberExpr",
+                      "line": 14,
+                      "col": 45,
+                      "span": [
+                        408,
+                        419
+                      ],
+                      "object": {
+                        "kind": "Identifier",
+                        "line": 14,
+                        "col": 45,
+                        "span": [
+                          408,
+                          414
+                        ],
+                        "name": "config"
+                      },
+                      "property": "name"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "alternate": {
+        "kind": "Block",
+        "line": 15,
+        "col": 8,
+        "span": [
+          430,
+          472
+        ],
+        "body": [
+          {
+            "kind": "ExprStmt",
+            "line": 16,
+            "col": 5,
+            "span": [
+              436,
+              470
+            ],
+            "expression": {
+              "kind": "BangCall",
+              "line": 16,
+              "col": 5,
+              "span": [
+                436,
+                470
+              ],
+              "target": "print",
+              "args": [
+                {
+                  "kind": "StringLiteral",
+                  "line": 16,
+                  "col": 12,
+                  "span": [
+                    443,
+                    469
+                  ],
+                  "value": "fetch disabled by config"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ForStmt",
+      "line": 19,
+      "col": 1,
+      "span": [
+        474,
+        596
+      ],
+      "iterator": "endpoint",
+      "iterable": {
+        "kind": "MemberExpr",
+        "line": 19,
+        "col": 17,
+        "span": [
+          490,
+          506
+        ],
+        "object": {
+          "kind": "Identifier",
+          "line": 19,
+          "col": 17,
+          "span": [
+            490,
+            496
+          ],
+          "name": "config"
+        },
+        "property": "endpoints"
+      },
+      "body": {
+        "kind": "Block",
+        "line": 19,
+        "col": 34,
+        "span": [
+          507,
+          596
+        ],
+        "body": [
+          {
+            "kind": "LetStmt",
+            "line": 20,
+            "col": 5,
+            "span": [
+              513,
+              549
+            ],
+            "id": "health",
+            "init": {
+              "kind": "PipeExpr",
+              "line": 20,
+              "col": 18,
+              "span": [
+                526,
+                549
+              ],
+              "stages": [
+                {
+                  "kind": "Identifier",
+                  "line": 20,
+                  "col": 18,
+                  "span": [
+                    526,
+                    534
+                  ],
+                  "name": "endpoint"
+                },
+                {
+                  "kind": "Identifier",
+                  "line": 20,
+                  "col": 29,
+                  "span": [
+                    537,
+                    549
+                  ],
+                  "name": "fetch_status"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "ExprStmt",
+            "line": 21,
+            "col": 5,
+            "span": [
+              554,
+              594
+            ],
+            "expression": {
+              "kind": "BangCall",
+              "line": 21,
+              "col": 5,
+              "span": [
+                554,
+                594
+              ],
+              "target": "print",
+              "args": [
+                {
+                  "kind": "FStringExpr",
+                  "line": 21,
+                  "col": 12,
+                  "span": [
+                    561,
+                    593
+                  ],
+                  "parts": [
+                    {
+                      "kind": "Identifier",
+                      "line": 21,
+                      "col": 15,
+                      "span": [
+                        564,
+                        572
+                      ],
+                      "name": "endpoint"
+                    },
+                    " -> ",
+                    {
+                      "kind": "MemberExpr",
+                      "line": 21,
+                      "col": 29,
+                      "span": [
+                        578,
+                        591
+                      ],
+                      "object": {
+                        "kind": "Identifier",
+                        "line": 21,
+                        "col": 29,
+                        "span": [
+                          578,
+                          584
+                        ],
+                        "name": "health"
+                      },
+                      "property": "status"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

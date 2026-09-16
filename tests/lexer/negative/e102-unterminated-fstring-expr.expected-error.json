@@ -1,0 +1,7 @@
+{
+  "code": "E102_LEX_UNTERMINATED_FSTRING_EXPR",
+  "phase": "lex",
+  "severity": "error",
+  "message": "`{` inside f\"...\" is not closed before the string ends.",
+  "hint": "Close the interpolation with }."
+}

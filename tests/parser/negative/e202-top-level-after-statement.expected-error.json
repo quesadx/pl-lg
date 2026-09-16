@@ -1,0 +1,7 @@
+{
+  "code": "E202_PARSE_NEEDS_NOT_AT_TOP",
+  "phase": "parse",
+  "severity": "error",
+  "message": "`needs` is only allowed at the top of the program or directly after a function's parameter list.",
+  "hint": "Move this declaration to a legal position."
+}

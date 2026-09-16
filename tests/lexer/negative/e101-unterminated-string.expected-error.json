@@ -1,0 +1,7 @@
+{
+  "code": "E101_LEX_UNTERMINATED_STRING",
+  "phase": "lex",
+  "severity": "error",
+  "message": "String literal is not closed before end of line/input.",
+  "hint": "Close the string with a matching \"."
+}

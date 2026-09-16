@@ -1,0 +1,7 @@
+{
+  "code": "E205_PARSE_INVALID_BANG_CALL_TARGET",
+  "phase": "parse",
+  "severity": "error",
+  "message": "Invalid bang-call target.",
+  "hint": "The target must be a bare identifier or dotted member path, e.g. `fs.readFile!(...)`."
+}

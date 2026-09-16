@@ -1,0 +1,7 @@
+{
+  "code": "E104_LEX_UNEXPECTED_CHARACTER",
+  "phase": "lex",
+  "severity": "error",
+  "message": "`!` is only valid immediately after a bang-call target (identifier or member-access chain) or as part of `!=`.",
+  "hint": "Use the `not` keyword for logical negation."
+}

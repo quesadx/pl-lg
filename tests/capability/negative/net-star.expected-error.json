@@ -1,0 +1,7 @@
+{
+  "code": "E305_EXTRACT_OVERPRIVILEGED_WILDCARD",
+  "phase": "extract",
+  "severity": "error",
+  "message": "net(\"*\") is a bare match-everything host pattern; only single leading-label wildcards like \"*.example.com\" are permitted.",
+  "hint": "Name the exact host, e.g. needs net(\"example.com\")."
+}

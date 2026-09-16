@@ -1,0 +1,71 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": "./tsconfig.json",
+    "sourceType": "module",
+    "ecmaVersion": 2022
+  },
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking"
+  ],
+  "ignorePatterns": ["dist/", "scripts/", "vite.config.ts"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-non-null-assertion": "error",
+    "@typescript-eslint/explicit-function-return-type": "error",
+    "@typescript-eslint/switch-exhaustiveness-check": "error",
+    "@typescript-eslint/no-unused-vars": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          { "group": ["fs", "node:fs", "fs/*", "node:fs/*"], "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["child_process", "node:child_process"], "message": "Process spawning is only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["net", "node:net"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["http", "node:http"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["https", "node:https"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["os", "node:os"], "message": "OS primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["dgram", "node:dgram"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." },
+          { "group": ["tls", "node:tls"], "message": "Network primitives are only permitted inside /host-bindings. Route through CapabilityGuard." }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/host-bindings/**/*.ts"],
+      "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["src/capability/guard.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["child_process", "node:child_process"], "message": "guard.ts may only import 'fs' for realpathSync — no process spawning here." },
+              { "group": ["net", "node:net"], "message": "guard.ts may only import 'fs' for realpathSync — no sockets here." },
+              { "group": ["http", "node:http"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["https", "node:https"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["os", "node:os"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["dgram", "node:dgram"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["tls", "node:tls"], "message": "guard.ts may only import 'fs' for realpathSync." },
+              { "group": ["fs/*", "node:fs/*"], "message": "guard.ts imports fs for realpathSync only — the sync spelling, not fs/promises." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["tests/**/*.ts"],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "no-restricted-imports": "off"
+      }
+    }
+  ]
+}

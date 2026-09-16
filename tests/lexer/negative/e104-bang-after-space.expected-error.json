@@ -1,0 +1,7 @@
+{
+  "code": "E104_LEX_UNEXPECTED_CHARACTER",
+  "phase": "lex",
+  "severity": "error",
+  "message": "Whitespace is not allowed between a bang-call target and `!`.",
+  "hint": "Write the call as `foo!(...)` with no space before the bang."
+}
