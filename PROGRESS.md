@@ -23,12 +23,14 @@
 | **1 — Lexer** | **DONE** | green (2026-09-15) |
 | **2 — Parser & AST** | **DONE** | green (2026-09-15) |
 | **3 — Static Capability Extraction** | **DONE** | green (2026-09-16) |
+| **4 — CapabilityGuard** | **DONE** | green (2026-09-16) |
 
 Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `vitest run`
-(= `npm run ci`). Last verified: 86/86 tests passing (11 phase0 + 17 lexer +
-20 parser + 19 patterns + 10 extract-negatives + 4 manifest-goldens +
-3 extractor-behavior + 2 purity; phase0 count includes validating all six
-Phase 3 negative fixture pairs).
+(= `npm run ci`). Last verified: 105/105 tests passing (10 phase0 + 16 lexer +
+19 parser + 37 capability [19 patterns, 9 extract-negatives, 4 manifest-goldens,
+3 extractor-behavior, 2 purity] + 23 guard [3 negatives, 20 unit]).
+Test count dropped 110 → 105 in the post-audit refinement: five duplicated
+pairing `it`s were consolidated into the shared fixture loader's throw.
 
 ## Phase 0 DoD checklist
 
@@ -311,19 +313,150 @@ first green CI, hunting for escapes. Findings, all resolved:
 
 CI gate after audit: 86/86 green.
 
-## Next: Phase 4 — CapabilityGuard (DoD in Section 11)
+## Phase 4 DoD checklist
 
-Runtime enforcer; the only module besides host-bindings allowed `fs` (scoped
-ESLint override for `fs.realpathSync` only, Section 3). Key notes:
-- Instantiate with the manifest (recompile via `compileManifest` from
-  `shared/manifest.ts`); authorize() canonicalizes BEFORE matching (existing
-  paths via `realpathSync`; new paths canonicalize the parent dir + reject
-  residual `..` in the leaf); returns the already-canonicalized payload
-  (TOCTOU: host-bindings execute byte-identical values).
-- `tests/guard/negative/` fixtures + the `traversal` capability fixture
-  (E403) go live this phase — the negative runner pattern is phase-filtered,
-  so guard fixtures just need `phase: "guard"` expected-errors.
-- Exec targets get the same realpath treatment; net matching per the
-  single-label wildcard rules already in `hostToRegex` (E401/E405/E406 codes).
-- Decide the manifest-hash scheme for E407 when wiring instantiation.
+- [x] `authorize()` canonicalizes (Section 2.2 step 5) **before** matching;
+      symlink pointing outside every granted `fsRead` glob rejected with E403
+      (`guard.test.ts` "symlink pointing outside"; real `symlinkSync` in a
+      tmpdir sandbox).
+- [x] Naive-string-match false-negative test: `../` whose string matches the
+      grant but whose canonical resolution doesn't — the Phase 0 `traversal`
+      fixture (E403) executes and passes through the negative runner, plus an
+      existing-path unit variant and a write-side fixture
+      (`e403-write-traversal`, exercises parent-dir canonicalization).
+- [x] Net matching: exact default; `*.example.com` accepts `api.example.com`,
+      rejects `evil.com` and `notexample.com` (substring false-positive class),
+      and also rejects bare `example.com` (single-leading-label rule). E401.
+- [x] Exec targets get the same realpath treatment: symlinked binary outside
+      the granted exec pattern → E403 (escape class); plainly-outside binary
+      → E405.
+- [x] TOCTOU: `authorize` returns the canonical value byte-identical to
+      `realpathSync` output, never the raw input (guard-side half; Phase 5's
+      host-binding spy test completes the chain — no host-bindings exist
+      before Phase 5 by phase discipline).
+- [x] All Phase 0 guard fixtures execute and throw their paired
+      `.expected-error.json` code exactly (`traversal` → E403).
+- CI gate: green — 110/110, all E4xx exact (E401/E402/E403/E404/E405/E406
+      live; E407 deliberately not, see decisions).
+
+### Phase 4 deviations & decisions
+
+1. **ESLint `node:`-prefix bypass closed** (user-approved in plan; Section 8.1
+   in the md updated to match). `no-restricted-imports` listed only bare
+   spellings, so `import 'node:fs'` sailed past the boundary in any src file.
+   All 8 modules now have both spellings in the global rule; the guard.ts
+   override gained `node:` variants plus `os`/`dgram`/`tls`/`fs/promises`
+   (which the spec's override never restricted — prose says "fs for
+   realpathSync only", config now says it too). **Proven both directions:**
+   `node:fs` outside host-bindings → error, exit 1; `node:child_process`
+   inside guard.ts → error, exit 1; fixtures deleted/restored after.
+2. **Deny-code split** (user-approved): raw string matched a grant but the
+   canonical value doesn't → **E403** (symlink/`..` escape class, what
+   `traversal` pins); neither raw nor canonical matched → the category's
+   plain code (E402/E404/E405). Fail-closed everywhere; invalid runtime URL
+   → E401 ("no net grant can cover it").
+3. **ENOENT → lexical fallback in `canonicalizeExisting`.** Spec says
+   realpath for paths that must already exist but is silent on missing ones;
+   without a fallback the committed `traversal` fixture (`/safe/../etc/passwd`,
+   no root to create `/safe`) would throw raw ENOENT instead of E403. Safe
+   because a path with missing components can't be resolved differently by a
+   host op that *succeeds* — the host op ENOENTs too, so the fallback grants
+   nothing. Other errnos propagate (I/O errors, not capability questions).
+   fsWrite follows 2.2 step 5.2: realpath the parent, reject a residual
+   `..`/`.` leaf → E403, canonical = parent-realpath + leaf.
+4. **macOS canonicalization note:** `/var` → `/private/var`, `/etc` →
+   `/private/etc` — canonical-only matching means grants built from
+   unresolved paths self-destruct. Tests build grants from
+   `realpathSync(tmpdir)`; document for users when `explain` lands (Phase 6).
+5. **`BANG_REGISTRY` + `EffectCategory` exported** from extractor.ts (was
+   module-private): the guard negative runner maps bang target → category
+   through it, and Phase 5's planned "stdlib ⊆ registry" sync test needs it.
+   Single source of truth preserved.
+6. **`requireEnv(env)` takes the env record as a parameter** (callers pass
+   `process.env`) — the guard stays free of ambient state reads and testable
+   with plain objects. E406 on first missing non-optional var; optional
+   absence fine. Per-read env authorization is Phase 5's to design (no env
+   bang exists in the stdlib yet).
+7. **E407 (manifest hash) deferred** to whoever wires instantiation with a
+   provenance hash — Phase 5 evaluator or Phase 9 CLI. No caller exists to
+   feed it a hash today; deciding the scheme now would be untested surface.
+8. **Guard negative runner** (`tests/guard/negative.test.ts`) scans both
+   `tests/guard/negative/` and `tests/capability/negative/` (where Phase 0
+   put `traversal`), phase-filtered to `guard`. Pre-evaluator harness:
+   lex → parse → extract (must pass) → `compileManifest` → walk the AST for
+   `BangCall`s (exhaustive switch + assertNever, house style) → authorize
+   literal `args[0]` via BANG_REGISTRY category → assert exact code. A guard
+   fixture whose relevant arg isn't a string literal fails loudly — only the
+   evaluator (Phase 5) can drive deferred values.
+9. **`vite.config.ts` added** (new file, not in spec — dev tooling):
+   direnv's `.direnv/flake-inputs/` holds full source snapshots of flake
+   inputs and vitest was executing their tests (tsc/eslint never saw them;
+   eslint ignores dot-dirs, tsconfig includes only src+tests). Excludes
+   `.direnv/**` on top of vitest's defaults; exempted from eslint via
+   `ignorePatterns` next to `scripts/` (typed linting needs tsconfig
+   membership, which Section 8.2 pins to src+tests).
+10. `CapabilityViolationError` lives in `shared/errors.ts` per the Phase 1
+    convention (purity closure unaffected — no new imports). Guard imports
+    only `node:fs` (realpathSync) + `node:path` (pure) + shared modules.
+
+### Post-audit refinements (2026-09-16)
+
+Whole-tree over-engineering audit after the Phase 4 gate; five cuts applied,
+all CI-green:
+
+1. **Guard negative runner walker (~90 → 7 lines).** The hand-rolled
+   `walkStatements`/`walkExpr` exhaustive switches only collected `BangCall`s;
+   replaced with a reflective `collectBangCalls` (array/object recursion, push
+   on `kind === 'BangCall'`). Coverage cannot regress: `coverage.test.ts`
+   still pins the Section 7.1 union exhaustively, and a collector miss would
+   fail `executeAgainstGuard` ("expected a CapabilityViolationError, got none").
+2. **Shared fixture loader (`tests/helpers/negative-fixtures.ts`).** The
+   pairing/basename/read block was duplicated across five phase runners (the
+   fifth copy added in Phase 4). One `loadNegativeFixtures(dir)` returns
+   `{basename, source, rawExpected, expected}`; the five pairing `it`s are
+   gone. Pairing enforcement moved into the loader as a loud throw —
+   **re-proven to fire** with an orphan fixture (`negative fixture pairing
+   broken in ...` + both file lists), removed after.
+3. **`.eslintrc.json` patterns groups (~34 → 16 entries).** Bare + `node:`
+   spellings collapsed into one `patterns` group per module (the `fs` group
+   also covers `fs/*` subpaths); md Section 8.1 synced (also gained the
+   missing `vite.config.ts` ignorePatterns entry). **Re-proven both
+   directions:** `node:fs/promises` in a src fixture → error, exit 1;
+   `node:child_process` in guard.ts → error, exit 1; `node:fs` in guard.ts →
+   clean.
+4. **Guard corpus test de-brittled.** Hardcoded
+   `['e403-write-traversal', 'traversal']` replaced by `length >= 2` + every
+   expected code matches `^E4\d{2}_` — no edit needed when a guard fixture is
+   added, still catches corpus loss or a mis-phased fixture.
+5. **`isENOENT` inlined** into `canonicalizeExisting` (single caller).
+
+Net: -145 lines, -0 deps. Test count 110 → 105: five pairing `it`s became the
+loader's throw, same enforcement (an unpaired fixture still fails CI).
+
+## Next: Phase 5 — Tree-Walking Evaluator (DoD in Section 11)
+
+Visitor interpreter, lexical scoping, closures capture defining env (by
+reference — load-bearing since Phase 2's AssignExpr). Key notes accumulated
+from Phases 2–4:
+
+- **Stdlib wrapper shape:** resolve args → `CapabilityGuard.authorize` → call
+  `/host-bindings` with the **returned canonical value**, never the original
+  argument (TOCTOU, Section 2.2 step 6). Spy test: no host-binding entry
+  point is reachable without an intervening `authorize` call — this also
+  completes Phase 4's TOCTOU test.
+- **Sync test:** every effectful stdlib name ⊆ `BANG_REGISTRY` (now
+  exported); register env bang names when the stdlib actually defines them.
+- **`print!`/`eprint!`:** route through the choke point but unconditionally
+  authorized (Section 1) — the guard needs an ambient path when the stdlib
+  lands; no manifest entry, no `needs`.
+- **Scope wiring:** a fn with its own `needs` uses `guard.forScope(id)`
+  (plain Error on missing id = wiring bug); inheriting fns use the enclosing
+  guard. `requireEnv(process.env)` once per run before evaluation.
+- **E407** manifest-hash scheme: decide when the evaluator/CLI actually
+  wires instantiation.
+- Reject duplicate `fn` redeclaration (Phase 3 let last-win in `scoped`).
+- Assignment writes the nearest enclosing scope holding the binding, else
+  E500; `#!strict` pipe-chain type pre-pass before first side effect
+  (E501/E505); negatives E500–E505 will need real evaluation in the runner,
+  not Phase 4's literal-arg harness.
 

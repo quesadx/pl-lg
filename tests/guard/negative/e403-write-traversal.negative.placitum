@@ -1,0 +1,3 @@
+needs fs.write("/safe/**")
+
+let f = fs.writeFile!("/safe/../evil.txt", "pwned")

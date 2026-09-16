@@ -60,3 +60,9 @@ export class ExtractError extends PlacitumErrorBase {
     super({ ...init, phase: 'extract' });
   }
 }
+
+export class CapabilityViolationError extends PlacitumErrorBase {
+  constructor(init: Omit<PlacitumErrorInit, 'phase'>) {
+    super({ ...init, phase: 'guard' });
+  }
+}
