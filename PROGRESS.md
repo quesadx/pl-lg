@@ -29,16 +29,15 @@
 | **6 — `placitum explain`** | **DONE** | green (2026-09-16) |
 | **7 — AI-Agent mode** | **DEFERRED** | optional post-1.0 (user-approved 2026-09-16) |
 | **8 — `rewind`** | **DEFERRED** | optional post-1.0 (user-approved 2026-09-16) |
-| **9 — CLI, packaging & hardening** | **NEXT** | final release gate (md Section 11) |
+| **9 — CLI, packaging & hardening** | **DONE** | green (2026-09-16) — final release gate |
 
-Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `vitest run`
-(= `npm run ci`). Last verified: 151/151 tests passing (10 phase0 + 16 lexer +
-19 parser + 37 capability [19 patterns, 9 extract-negatives, 4 manifest-goldens,
-3 extractor-behavior, 2 purity] + 23 guard [3 negatives, 20 unit] + 35 eval
-[3 goldens, 10 negatives, 10 chokepoint, 12 semantics] + 11 explain
-[3 goldens, 7 renderer, 1 purity]).
-Test count dropped 110 → 105 in the post-audit refinement: five duplicated
-pairing `it`s were consolidated into the shared fixture loader's throw.
+Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `tsc -p
+tsconfig.build.json` (build) → `vitest run` (= `npm run ci`). Last verified:
+174/174 tests passing (10 phase0 + 16 lexer + 19 parser + 37 capability + 23
+guard + 35 eval + 11 explain + 23 cli [13 e2e, 9 formatter, 1 console-ban]).
+Phase 9 added the `build` step to the CI chain (user-approved): it is the first
+phase with an emit target, so a broken build config now fails the gate instead
+of shipping silently.
 
 ## Phase 0 DoD checklist
 
@@ -640,19 +639,126 @@ both fixed with regression coverage; gate 140/140 after):
    Regression test **proven to fire** before the fix (hand-built manifest;
    pipeline reachability is extractor-tested). Gate 151/151.
 
-## Next: Phase 9 — CLI, Packaging & Hardening (final release gate)
+## Phase 9 DoD checklist
 
-1.0 scope (md Section 11): `placitum run` and `placitum explain` subcommands,
-`--help`/`--version` (deterministic, tested), every `PlacitumError` reaching the
-CLI boundary rendered through the single Section 9.3 formatter (grep-checked: no
-ad hoc `console.error` in `src/`), and an end-to-end test running the Rosetta
-Stone example through `run` and `explain` (`audit`/`rewind` belong to the
-deferred phases). `commander` (allow-listed; not installed yet) is the argument
-parser; `E601_CLI_FILE_NOT_FOUND`/`E602_CLI_INVALID_FLAG` are this phase's codes.
-`explain()` (Phase 6) returns the string — the CLI prints it; `runSource` is the
-run wiring. Forward-note: reading the script file must respect the import
-boundary (`fs` is restricted to `/host-bindings` + `guard.ts`) — Phase 9
-decides between a host binding and a scoped `cli/` ESLint exception.
+- [x] Every `PlacitumError` renders through the single Section 9.3 formatter:
+      `src/cli/format-error.ts` is the only error->text function; `runCli`
+      catches `PlacitumErrorBase` (and commander usage errors, re-coded E602)
+      and writes `formatError(err.toEnvelope(), source)`. The grep-based CI
+      check is `tests/cli/console-ban.test.ts`: zero `console.` in `src/`
+      (host output stays in `/host-bindings`, CLI output in `cli/`).
+- [x] `placitum run|explain --help` and `--version` (plus bare `placitum`)
+      produce deterministic, tested output — same bytes across invocations,
+      listed subcommands, `1.0.0` (package.json version asserted equal to the
+      `VERSION` constant).
+- [x] End-to-end release gate: the exact Section 6 Rosetta Stone script runs
+      through `run` (stub hosts/guard for platform independence, per Phase 5
+      decision 6) producing the pinned eval golden, and `explain` produces the
+      exact explain golden byte-for-byte. Real full-stack verification of the
+      built binary (`node dist/cli/bin.js`) with the real guard/hosts/fs done
+      manually in a tmpdir (read + exit 0; E403 traversal renders with
+      location and exit 1).
+- [x] (Optional, non-blocking) secondary sandbox documented as skipped — see
+      decision 7.
+- [x] Packaging: `bin.placitum -> dist/cli/bin.js`, version `1.0.0`, `build`
+      script + `tsconfig.build.json` (src-only include; the main config also
+      includes `tests/`), build step added to the CI chain. `private: true`
+      retained (local binary; no publish).
+
+## Phase 9 deviations & decisions
+
+1. **Script reading is a `/host-bindings` export, not a scoped ESLint
+   exception.** `readSourceFile(path)` (raw `readFileSync`, errors unwrapped)
+   lives beside the host bindings; the CLI maps any read failure to E601.
+   This is harness I/O — the CLI reading its own input, like node reading a
+   `.js` file — not a script capability: no bang, not in any manifest, no
+   guard call. Section 0 rule 6 does not apply (nothing script-reachable was
+   added).
+2. **`runCli(argv, io): number` + `bin.ts`.** All process wiring sits in
+   `src/cli/bin.ts` (`process.argv`/`stdout`/`stderr`/`exitCode`), making the
+   whole CLI testable in-process — the release gate is a vitest test, not a
+   subprocess invoker. `CliIo` carries the test seams (`readFile`, `env`,
+   `guard`, `hosts`); production defaults are real. `bin.ts` is a separate
+   entry file rather than an `import.meta.url === pathToFileURL(argv[1])`
+   guard because npm's bin shims can `exec` a symlinked path, which would make
+   the guard silently skip `main()` on global links.
+3. **Commander wiring:** `exitOverride()` + `configureOutput.writeErr` no-op
+   (commander's own error line is suppressed and re-rendered as E602, so
+   stderr has exactly one shape); `exitCode === 0` commander errors (help,
+   version, `help` subcommand) return 0 — their output already went to
+   `writeOut`. `allowExcessArguments(false)`. Section 9.2's E602 covers
+   unknown commands/options, missing arguments, and excess arguments.
+4. **`E601` wraps any read failure** — ENOENT, EISDIR, EACCES — with the raw
+   errno text in the message (fail closed; the truth is in the message). The
+   catalog only defines the not-found case and inventing a second code would
+   need a spec change.
+5. **Guard denials now carry the bang-call location** (interpreter
+   `locatedViolation`). Previously only `EvalError`s were located, so
+   Section 9.3's excerpt format was unreachable for the runtime security
+   errors it literally depicts. The error is rethrown as the same class with
+   code/message/severity/hint preserved — never caught and discarded
+   (Section 0 rule 7). New user-visible behavior: E401–E406 render with
+   `--> file:line:col` + caret span.
+6. **`printable()` hoisted to `src/shared/printable.ts`** (from
+   `cli/explain.ts`), shared by explain and the formatter; the explain purity
+   closure gained the file (no imports, still I/O-free). Formatter excerpt
+   lines use a separate one-for-one C0 replacement (`?`, tab kept) because
+   JSON-quoting a source line would break caret alignment — a script file can
+   carry terminal escapes and the excerpt renders them.
+7. **Secondary sandbox skipped, documented** (optional/non-blocking DoD, user
+   approved): Node `--permission` / Deno permission flags express *static*
+   allow-lists, but Placitum's reach is a runtime manifest per script
+   (variables, globs, symlink-resolved paths). A generic jailed wrapper would
+   either break legitimate grants or document a sandbox it cannot enforce;
+   `CapabilityGuard` remains the enforcement layer and the import boundary is
+   the build-time check. Revisit if per-script permission flags ever become
+   expressible at spawn time.
+8. **E407 (manifest provenance hash) still deferred** — the CLI hands the
+   manifest extractor -> compileManifest -> guard in one straight in-process
+   line, with no serialization boundary to tamper with; the hash protects the
+   Phase 7 JSON round-trip. Wire it with Phase 7.
+9. **`env()` remains declaration-only** in 1.0: the guard's `requireEnv`
+   enforces presence (E406) but no `env.get` bang exists, so a script cannot
+   read an env var — a pre-existing Phase 5 deferral (no guessed bang names),
+   not a Phase 9 regression. Adding `env.get` later needs its TDD negatives
+   per rule 6.
+
+### Phase 9 post-phase audit (2026-09-16)
+
+Adversarial probing of the CLI boundary after the first green gate:
+
+1. **Excerpt lines rendered script-controlled bytes raw** — a shared
+   `.placitum` file carrying terminal escapes would inject them into the
+   runner's terminal the moment any error excerpted that line (the Phase 6
+   explain-forgery class, new surface). Fixed: one-for-one C0/DEL -> `?`
+   replacement (tab kept) so caret columns stay aligned; unit-tested with a
+   real ESC byte.
+2. **Every error class probed end-to-end through the built binary** (not just
+   vitest): E101 + E301 (extract/lex errors excerpt through the formatter),
+   E403 (guard denial with call-site location), E601 (missing file), E602
+   (unknown/bogus flags). All rendered with the single formatter, exit codes
+   0/1 correct, stdout clean on failure.
+3. **Formatter fail-closed checks:** out-of-range location line -> excerpt
+   skipped, header + hint still render (unit test added); missing span ->
+   single caret; span past EOL -> clamped; span-less location -> arrow only.
+   The formatter has no throw path (diagnostics cannot fail diagnostics).
+4. **Real binary verified with real guard/hosts/fs** in a canonical tmpdir
+   (`/private/tmp/...` on macOS): granted fs.read executes and prints, exit 0;
+   traversal denies E403 exit 1. `dist/cli/bin.js` keeps the shebang; dist is
+   gitignored; `npm link`/publish left to the user (private package).
+5. Verified clean: no `any` / `@ts-ignore` / eslint-disable added; zero
+   `console.` in src/; goldens untouched (151 prior tests byte-stable);
+   check-deps sees commander from the Section 8.3 allow-list (8 direct deps).
+
+CI gate after audit: 174/174 green.
+
+## Next: 1.0 complete
+
+The `run`/`explain` surface, packaging, and final release gate are done. No
+further phase is queued: Phases 7 (`infer`/`audit`/`run --attenuate`) and 8
+(`rewind`) are user-deferred optional post-1.0 work with unchanged DoDs
+(below). Open follow-ups if wanted: `npm link` (or publish) for a global
+`placitum` command, an `env.get` bang, and the Phase 7/8 builds.
 
 ## Deferred (optional, post-1.0): Phases 7 & 8
 

@@ -15,6 +15,7 @@ const CLOSURE = [
   'src/shared/manifest.ts',
   'src/shared/glob-to-regex.ts',
   'src/shared/errors.ts',
+  'src/shared/printable.ts',
 ] as const;
 
 describe('Phase 6: purity smoke test (Section 11 — the renderer never does I/O)', () => {

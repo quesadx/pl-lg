@@ -1,7 +1,7 @@
 import type { BinaryExpr, Block, Expr, FnDecl, Program, Statement } from '../ast/ast.js';
 import type { Guard } from '../capability/guard.js';
 import { assertNever } from '../shared/assert-never.js';
-import { EvalError } from '../shared/errors.js';
+import { CapabilityViolationError, EvalError } from '../shared/errors.js';
 import type { PlacitumErrorInit } from '../shared/errors.js';
 import { deepEquals, display, isCallable, truthy, typeName } from '../shared/values.js';
 import type { CallableValue, NativeSig, TypeName, Value } from '../shared/values.js';
@@ -39,6 +39,20 @@ function located(err: EvalError, node: Located): EvalError {
   };
   if (err.hint !== undefined) init.hint = err.hint;
   return new EvalError(init);
+}
+
+// Section 0 rule 7: a CapabilityViolationError always propagates to the CLI
+// envelope — it is rethrown here unchanged (same class, code, message, hint),
+// only enriched with the bang-call site so the Section 9.3 formatter can show
+// the offending line. Never swallowed, never downgraded.
+function locatedViolation(err: CapabilityViolationError, node: Located): CapabilityViolationError {
+  return new CapabilityViolationError({
+    code: err.code,
+    message: err.message,
+    severity: err.severity,
+    location: { line: node.line, col: node.col, span: node.span },
+    ...(err.hint !== undefined ? { hint: err.hint } : {}),
+  });
 }
 
 // `return` unwinds the current fn call; there is no other abrupt completion.
@@ -151,7 +165,14 @@ function evalBangCall(
   // hasOwn: target is source-controlled; a plain index would dispatch to
   // Object.prototype members for names like `constructor` or `__proto__`.
   const effect = Object.hasOwn(ctx.bangs, target) ? ctx.bangs[target] : undefined;
-  if (effect !== undefined) return effect(guard, args);
+  if (effect !== undefined) {
+    try {
+      return effect(guard, args);
+    } catch (err) {
+      if (err instanceof CapabilityViolationError) throw locatedViolation(err, node);
+      throw err;
+    }
+  }
   // The grammar permits banging pure fns; effectful names are never bound in
   // the environment, so a plain CallExpr on them cannot happen (Section 1).
   const callee = resolveDotted(target, env);
