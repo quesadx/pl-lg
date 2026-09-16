@@ -33,8 +33,10 @@
 
 Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `tsc -p
 tsconfig.build.json` (build) → `vitest run` (= `npm run ci`). Last verified:
-174/174 tests passing (10 phase0 + 16 lexer + 19 parser + 37 capability + 23
-guard + 35 eval + 11 explain + 23 cli [13 e2e, 9 formatter, 1 console-ban]).
+178/178 tests passing (10 phase0 + 16 lexer + 19 parser + 37 capability + 23
+guard + 39 eval + 11 explain + 23 cli [13 e2e, 9 formatter, 1 console-ban]);
+the 4 over the pre-fix 174 are the FIX-1 location assertions (see "Post-1.0
+fixes" below).
 Phase 9 added the `build` step to the CI chain (user-approved): it is the first
 phase with an emit target, so a broken build config now fails the gate instead
 of shipping silently.
@@ -751,6 +753,29 @@ Adversarial probing of the CLI boundary after the first green gate:
    check-deps sees commander from the Section 8.3 allow-list (8 direct deps).
 
 CI gate after audit: 174/174 green.
+
+## Post-1.0 fixes
+
+### FIX-1 — E503 call-site location (2026-09-16)
+
+Black-box execution of `placitum-v1-test-plan-3.md` (Rev. 2) against the
+shipped binary found one product gap: `E503_EVAL_ARITY_MISMATCH` rendered
+header+hint with no `-->` location, for all three throw sites (closure arity,
+native arity, bang-native arity). Root cause: the arity checks live in callees
+that have no AST node (`Closure.call`, `native`, `bangNative`), and the two
+call chokepoints only located guard violations and E502. Fix (no checks moved):
+`callValue` and `evalBangCall` now rethrow `located(err, node)` for any
+`EvalError` that escaped without a location, never clobbering an inner one —
+which also locates the previously-unlocated native `E501`s (`json.parse(1)`,
+invalid JSON) for free. 4 new assertions in `tests/eval/semantics.test.ts` pin
+exact line/col/span for fn/native/bang cases; black-box verified through
+`dist/cli/bin.js` (all three shapes render excerpt + caret, exit 1). Gate:
+178/178.
+
+The same execution produced nine doc-only corrections (T-1..T-9) plus FIX-2
+(expectation wording only, no code), applied as Rev. 3 of
+`placitum-v1-test-plan-3.md`; evidence in `placitum-v1-test-plan-3-findings.md`.
+Product behavior was correct in all nine — no other `src/` change.
 
 ## Next: 1.0 complete
 

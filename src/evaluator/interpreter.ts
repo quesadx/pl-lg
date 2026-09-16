@@ -136,7 +136,15 @@ function callValue(callee: Value, args: Value[], node: Located): Value {
       node,
     );
   }
-  return callee.call(args);
+  try {
+    return callee.call(args);
+  } catch (err) {
+    // Callees (closures, natives) throw arity/type errors with no AST node of
+    // their own; locate them at the call site. An inner location is never
+    // clobbered — only errors that escaped unlocated get one.
+    if (err instanceof EvalError && err.location === undefined) throw located(err, node);
+    throw err;
+  }
 }
 
 function resolveDotted(target: string, env: Env): Value | undefined {
@@ -170,6 +178,9 @@ function evalBangCall(
       return effect(guard, args);
     } catch (err) {
       if (err instanceof CapabilityViolationError) throw locatedViolation(err, node);
+      // stdlib wrappers throw arity/type errors with no AST node of their own;
+      // locate them at the bang-call site. Never clobber an inner location.
+      if (err instanceof EvalError && err.location === undefined) throw located(err, node);
       throw err;
     }
   }
