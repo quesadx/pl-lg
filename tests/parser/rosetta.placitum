@@ -1,0 +1,22 @@
+#!strict
+
+needs fs.read("/etc/config/*.json"), net("api.example.com"), env(API_KEY)
+
+fn fetch_status(url) needs only(net("api.example.com")) {
+    let response = url | curl!({ method: "GET" })
+    return response
+}
+
+let config = fs.readFile!("/etc/config/app.json") | json.parse
+
+if config.enabled {
+    let result = fetch_status("https://api.example.com/status")
+    print!(f"status={result.status} config={config.name}")
+} else {
+    print!("fetch disabled by config")
+}
+
+for endpoint in config.endpoints {
+    let health = endpoint | fetch_status
+    print!(f"{endpoint} -> {health.status}")
+}

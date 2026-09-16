@@ -217,7 +217,10 @@ ReturnStmt      ::= "return" Expr? NEWLINE
 ExprStmt        ::= Expr NEWLINE
 
 (* ---- Expressions, lowest to highest precedence ---- *)
-Expr            ::= PipeExpr
+Expr            ::= AssignExpr
+AssignExpr      ::= IDENTIFIER "=" AssignExpr | PipeExpr
+                    (* lowest precedence, right-associative; the target must be a bare
+                       IDENTIFIER — `let` introduces bindings, `=` reassigns existing ones *)
 PipeExpr        ::= OrExpr ("|" OrExpr)*
 OrExpr          ::= AndExpr ("||" AndExpr)*
 AndExpr         ::= EqExpr ("&&" EqExpr)*
@@ -527,7 +530,7 @@ interface UnaryExpr extends BaseNode {
 }
 interface AssignExpr extends BaseNode {
   kind: 'AssignExpr';
-  id: string;
+  id: string;          // bare identifier target (Section 4); `let` introduces, `=` reassigns
   value: Expr;
 }
 
@@ -1042,3 +1045,4 @@ until Phase N's CI Gate below is fully green.**
 | Pipe operator spelled `|>`, given no argument-binding semantics | `|>` is a two-character reach on most layouts, and the base spec never said where the piped value lands in a call | Token simplified to a single `|` (shell-idiomatic, disambiguated from `||` by maximal munch — Section 4), with an explicit two-rule argument-insertion desugaring (Section 5). |
 | No stated rule preventing effectful stdlib functions from being called without `!` | Would break Phase 3's "scan for `BangCall`" coverage claim | Made explicit invariant: effectful operations are reachable *only* via `BangCall` syntax (Section 1). |
 | No guidance on `print!`/stdout | Ambiguous whether output needs a capability | Declared ambient/always-authorized, still routed through the choke point for `rewind` completeness (Section 1). |
+| `AssignExpr` present in the Section 7.1 union, but no grammar production for it | The parser could never produce it, making the Phase 2 DoD ("every interface in Section 7.1 is producible") unsatisfiable — and the language had no way to reassign variables, so `while` loops could not mutate accumulators | Added `AssignExpr ::= IDENTIFIER "=" AssignExpr | PipeExpr` (lowest precedence, right-associative, bare-identifier target) to Section 4. `let` remains the only binder; assignment writes the nearest enclosing scope holding the binding, else `E500` (evaluator semantics, Phase 5). User-approved during Phase 2. |

@@ -66,3 +66,9 @@ export class LexError extends PlacitumErrorBase {
     super({ ...init, phase: 'lex' });
   }
 }
+
+export class ParseError extends PlacitumErrorBase {
+  constructor(init: Omit<PlacitumErrorInit, 'phase'>) {
+    super({ ...init, phase: 'parse' });
+  }
+}

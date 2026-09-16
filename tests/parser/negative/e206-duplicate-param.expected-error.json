@@ -1,0 +1,7 @@
+{
+  "code": "E206_PARSE_DUPLICATE_PARAM",
+  "phase": "parse",
+  "severity": "error",
+  "message": "Duplicate parameter `a`.",
+  "hint": "Parameter names must be unique."
+}

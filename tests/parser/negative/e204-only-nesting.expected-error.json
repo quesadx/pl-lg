@@ -1,0 +1,7 @@
+{
+  "code": "E204_PARSE_INVALID_CAPABILITY_TOKEN",
+  "phase": "parse",
+  "severity": "error",
+  "message": "`only(...)` cannot be nested.",
+  "hint": "Use a single only() around a base capability token."
+}

@@ -21,10 +21,10 @@
 |---|---|---|
 | **0 — Scaffolding & test harness** | **DONE** | green (2026-09-15) |
 | **1 — Lexer** | **DONE** | green (2026-09-15) |
-| 2 — Parser & AST | next | — |
+| **2 — Parser & AST** | **DONE** | green (2026-09-15) |
 
 Gate runs, in order: `check-deps` → `tsc --noEmit` → `eslint` → `vitest run`
-(= `npm run ci`). Last verified: 22/22 tests passing (5 phase0 + 17 lexer).
+(= `npm run ci`). Last verified: 42/42 tests passing (5 phase0 + 17 lexer + 20 parser).
 
 ## Phase 0 DoD checklist
 
@@ -131,16 +131,71 @@ against `PlacitumErrorSchema` — so `src/` holds exactly one file: `src/shared/
   fields + `toEnvelope()`) + `LexError`; later phases append their classes here
   so `instanceof` checks (Section 0 rule 7) stay one-import.
 
-## Next: Phase 2 — Parser & AST (DoD in Section 11)
+## Phase 2 DoD checklist
 
-`Token[] → ASTNode` per Section 4 grammar + Section 7.1 types. Key requirements:
-- Full EBNF with exact precedence (pipe lowest → unary/postfix highest);
-  statements recursive-descent, expressions Pratt.
-- `E202` for `needs` in every illegal position (mid-block, after a function's
-  first non-needs statement, second top-level needs block after other statements).
-- Every Section 7.1 interface producible; `satisfies ASTNode` check on output.
-- `E205` for invalid bang-call targets (`getFn()!(...)`, literal `!(...)`, etc.).
-- Golden AST for the Rosetta Stone example → `tests/parser/rosetta.ast.golden.json`.
-- Negatives for every E2xx code; TDD per Section 0 rule 1.
-- Lexer emits EOF without a trailing NEWLINE — parser treats EOF as terminator.
-- AST types belong in `src/ast/` (pure data definitions, no logic, Section 3).
+- [x] Full EBNF (Section 4) implemented with the exact precedence table
+      (`=` right-assoc lowest → pipe → `||` → `&&` → eq → rel → add → mul →
+      unary → postfix); statements recursive-descent, expressions Pratt
+      (`parseBinaryLevel` + one method per tier).
+- [x] `E202` fires for `needs` mid-`if`-block, after a fn's first non-needs
+      statement, and top-level after a statement (3 fixtures).
+- [x] Every Section 7.1 interface producible — coverage test walks rosetta +
+      kitchen-sink with an exhaustive `switch` + `assertNever` over
+      `ASTNode | CapabilityToken` and asserts all 34 kinds appear.
+      (`CapabilityToken` nodes are not in `ASTNode` itself — Section 7.1 —
+      so the walker's union is the two combined.)
+- [x] `E205` fires for prior-call chains (`getFn().g!(1)`) and paren-rooted
+      chains (`(x).y!(1)`, via a `primaryParenthesized` flag), keeping
+      `BangCall.target` a compile-time-known dotted string.
+- [x] `tests/parser/rosetta.ast.golden.json` generated from Section 6's exact
+      script, then hand-reviewed (span/col arithmetic, flat pipes, raw
+      un-desugared bare stages, dotted bang targets) before commit.
+- [x] Negatives cover every E2xx code (13 scripts: 5×E201 incl. member/call
+      assignment targets and bang-without-parens, 3×E202, E203, 2×E204 incl.
+      `only(only(...))`, 2×E205, E206), each schema-valid and code-exact.
+- CI gate: goldens byte-for-byte (2-space JSON, deterministic key order
+  `kind,line,col,span,fields`), all E2xx exact. 20/20 parser tests.
+
+### Phase 2 deviations & decisions (md updated where marked)
+
+1. **`AssignExpr ::= IDENTIFIER "=" AssignExpr | PipeExpr` added to Section 4
+   (user-approved; md + appendix updated).** The 7.1 union had `AssignExpr`
+   with no grammar production, and the language had no way to reassign —
+   `while` accumulators were impossible. Assignment is lowest precedence,
+   right-assoc (`a = b = 9`), bare-identifier targets only (`u.a = 2` and
+   `f() = 5` are E201). **Phase 5 forward-note:** assignment writes the
+   nearest enclosing scope holding the binding, else `E500`; the assignment
+   expression yields the assigned value; closures capture environments by
+   reference (now load-bearing).
+2. **Newline policy:** NEWLINE terminates statements only at grouping depth 0;
+   inside `(...)` arg lists, `[...]`, object literals, and f-string
+   interpolations it is skipped (forced by the lexer allowing newlines in
+   interpolations; multi-line calls come free). Block braces are not tracked.
+3. **Statement terminators:** NEWLINE (consumed), `}` (lookahead — one-line
+   blocks like `fn f() { return 1 }`), or EOF (no trailing newline).
+4. **Golden authoring:** fixtures + harnesses written first (failed on the
+   missing parser module), then goldens generated via `UPDATE_GOLDENS=1`
+   and hand-reviewed (spec Section 6 sanctions generate-then-review).
+   `UPDATE_GOLDENS` is dev-only; CI always compares.
+5. **`only` lexes as the ONLY keyword** (unlike fs/net/exec/env which are
+   IDENTIFIERs), so `parseCapabilityToken` accepts both token kinds.
+6. **Trailing commas rejected** (grammar has none) — fall out as E201.
+7. **f-string `{a}{b}`** produces two adjacent expr parts; the 7.1 comment
+   says "alternating" but nothing enforces it. Ignored.
+
+## Next: Phase 3 — Static Capability Extraction (DoD in Section 11)
+
+Pure `ASTNode → SerializedCapabilityManifest` (Sections 2.1, 7.2, 7.3). Key notes:
+- `assertNever` already lives in `src/shared/assert-never.ts`; `ParseError`
+  precedent: append `ExtractError` to `src/shared/errors.ts`.
+- Glob-to-regex compiler in `shared/` must support `**` crossing `/` and a
+  single `*` NOT crossing `/` (see Phase 0 decision on
+  `traversal.negative.placitum`); pure string transform, zero disk contact.
+- `only(...)` never nests (parser already guarantees) — extractor consumes
+  `FnDecl.needs` for `scoped`; child ⊂ parent or `E303`; bare `"*"` → `E305`;
+  uncovered literal `BangCall` → `E301`; non-literal args → `DeferredCheck`.
+- Purity smoke test: run the extractor under Node `vm` with
+  `fs`/`net`/`child_process` etc. `undefined`.
+- Rosetta manifest golden: `tests/capability/rosetta.manifest.golden.json`,
+  generated + hand-reviewed like the AST golden.
+

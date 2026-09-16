@@ -1,0 +1,3 @@
+if true {
+    needs net("a.com")
+}

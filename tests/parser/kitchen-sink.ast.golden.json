@@ -1,0 +1,1749 @@
+{
+  "kind": "Program",
+  "line": 1,
+  "col": 1,
+  "span": [
+    0,
+    961
+  ],
+  "pragmas": [
+    "strict"
+  ],
+  "needs": [
+    {
+      "kind": "NeedsDecl",
+      "line": 2,
+      "col": 1,
+      "span": [
+        9,
+        73
+      ],
+      "tokens": [
+        {
+          "kind": "FsWriteCapability",
+          "line": 2,
+          "col": 7,
+          "span": [
+            15,
+            41
+          ],
+          "pattern": "/tmp/out/*.log"
+        },
+        {
+          "kind": "ExecCapability",
+          "line": 2,
+          "col": 35,
+          "span": [
+            43,
+            61
+          ],
+          "pattern": "/usr/bin/*"
+        },
+        {
+          "kind": "EnvCapability",
+          "line": 2,
+          "col": 55,
+          "span": [
+            63,
+            73
+          ],
+          "name": "HOME",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "kind": "NeedsDecl",
+      "line": 3,
+      "col": 1,
+      "span": [
+        74,
+        98
+      ],
+      "tokens": [
+        {
+          "kind": "NetCapability",
+          "line": 3,
+          "col": 7,
+          "span": [
+            80,
+            98
+          ],
+          "pattern": "db.internal"
+        }
+      ]
+    }
+  ],
+  "body": [
+    {
+      "kind": "LetStmt",
+      "line": 5,
+      "col": 1,
+      "span": [
+        100,
+        113
+      ],
+      "id": "total",
+      "init": {
+        "kind": "NumberLiteral",
+        "line": 5,
+        "col": 13,
+        "span": [
+          112,
+          113
+        ],
+        "value": 0
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 6,
+      "col": 1,
+      "span": [
+        114,
+        123
+      ],
+      "id": "i",
+      "init": {
+        "kind": "NumberLiteral",
+        "line": 6,
+        "col": 9,
+        "span": [
+          122,
+          123
+        ],
+        "value": 3
+      }
+    },
+    {
+      "kind": "WhileStmt",
+      "line": 7,
+      "col": 1,
+      "span": [
+        124,
+        175
+      ],
+      "test": {
+        "kind": "BinaryExpr",
+        "line": 7,
+        "col": 7,
+        "span": [
+          130,
+          135
+        ],
+        "operator": ">",
+        "left": {
+          "kind": "Identifier",
+          "line": 7,
+          "col": 7,
+          "span": [
+            130,
+            131
+          ],
+          "name": "i"
+        },
+        "right": {
+          "kind": "NumberLiteral",
+          "line": 7,
+          "col": 11,
+          "span": [
+            134,
+            135
+          ],
+          "value": 0
+        }
+      },
+      "body": {
+        "kind": "Block",
+        "line": 7,
+        "col": 13,
+        "span": [
+          136,
+          175
+        ],
+        "body": [
+          {
+            "kind": "ExprStmt",
+            "line": 8,
+            "col": 5,
+            "span": [
+              142,
+              159
+            ],
+            "expression": {
+              "kind": "AssignExpr",
+              "line": 8,
+              "col": 5,
+              "span": [
+                142,
+                159
+              ],
+              "id": "total",
+              "value": {
+                "kind": "BinaryExpr",
+                "line": 8,
+                "col": 13,
+                "span": [
+                  150,
+                  159
+                ],
+                "operator": "+",
+                "left": {
+                  "kind": "Identifier",
+                  "line": 8,
+                  "col": 13,
+                  "span": [
+                    150,
+                    155
+                  ],
+                  "name": "total"
+                },
+                "right": {
+                  "kind": "Identifier",
+                  "line": 8,
+                  "col": 21,
+                  "span": [
+                    158,
+                    159
+                  ],
+                  "name": "i"
+                }
+              }
+            }
+          },
+          {
+            "kind": "ExprStmt",
+            "line": 9,
+            "col": 5,
+            "span": [
+              164,
+              173
+            ],
+            "expression": {
+              "kind": "AssignExpr",
+              "line": 9,
+              "col": 5,
+              "span": [
+                164,
+                173
+              ],
+              "id": "i",
+              "value": {
+                "kind": "BinaryExpr",
+                "line": 9,
+                "col": 9,
+                "span": [
+                  168,
+                  173
+                ],
+                "operator": "-",
+                "left": {
+                  "kind": "Identifier",
+                  "line": 9,
+                  "col": 9,
+                  "span": [
+                    168,
+                    169
+                  ],
+                  "name": "i"
+                },
+                "right": {
+                  "kind": "NumberLiteral",
+                  "line": 9,
+                  "col": 13,
+                  "span": [
+                    172,
+                    173
+                  ],
+                  "value": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "FnDecl",
+      "line": 12,
+      "col": 1,
+      "span": [
+        177,
+        216
+      ],
+      "id": "add",
+      "params": [
+        {
+          "kind": "Param",
+          "line": 12,
+          "col": 8,
+          "span": [
+            184,
+            185
+          ],
+          "id": "a"
+        },
+        {
+          "kind": "Param",
+          "line": 12,
+          "col": 11,
+          "span": [
+            187,
+            188
+          ],
+          "id": "b"
+        }
+      ],
+      "needs": null,
+      "body": {
+        "kind": "Block",
+        "line": 12,
+        "col": 14,
+        "span": [
+          190,
+          216
+        ],
+        "body": [
+          {
+            "kind": "ReturnStmt",
+            "line": 13,
+            "col": 5,
+            "span": [
+              196,
+              214
+            ],
+            "argument": {
+              "kind": "BinaryExpr",
+              "line": 13,
+              "col": 13,
+              "span": [
+                204,
+                214
+              ],
+              "operator": "*",
+              "left": {
+                "kind": "BinaryExpr",
+                "line": 13,
+                "col": 13,
+                "span": [
+                  204,
+                  209
+                ],
+                "operator": "+",
+                "left": {
+                  "kind": "Identifier",
+                  "line": 13,
+                  "col": 13,
+                  "span": [
+                    204,
+                    205
+                  ],
+                  "name": "a"
+                },
+                "right": {
+                  "kind": "Identifier",
+                  "line": 13,
+                  "col": 17,
+                  "span": [
+                    208,
+                    209
+                  ],
+                  "name": "b"
+                }
+              },
+              "right": {
+                "kind": "NumberLiteral",
+                "line": 13,
+                "col": 22,
+                "span": [
+                  213,
+                  214
+                ],
+                "value": 2
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "FnDecl",
+      "line": 16,
+      "col": 1,
+      "span": [
+        218,
+        245
+      ],
+      "id": "nothing",
+      "params": [],
+      "needs": null,
+      "body": {
+        "kind": "Block",
+        "line": 16,
+        "col": 14,
+        "span": [
+          231,
+          245
+        ],
+        "body": [
+          {
+            "kind": "ReturnStmt",
+            "line": 17,
+            "col": 5,
+            "span": [
+              237,
+              243
+            ],
+            "argument": null
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 20,
+      "col": 1,
+      "span": [
+        247,
+        279
+      ],
+      "id": "summed",
+      "init": {
+        "kind": "CallExpr",
+        "line": 20,
+        "col": 14,
+        "span": [
+          260,
+          279
+        ],
+        "callee": {
+          "kind": "Identifier",
+          "line": 20,
+          "col": 14,
+          "span": [
+            260,
+            263
+          ],
+          "name": "add"
+        },
+        "args": [
+          {
+            "kind": "NumberLiteral",
+            "line": 21,
+            "col": 5,
+            "span": [
+              269,
+              270
+            ],
+            "value": 1
+          },
+          {
+            "kind": "NumberLiteral",
+            "line": 22,
+            "col": 5,
+            "span": [
+              276,
+              277
+            ],
+            "value": 2
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 24,
+      "col": 1,
+      "span": [
+        280,
+        301
+      ],
+      "id": "neg",
+      "init": {
+        "kind": "BinaryExpr",
+        "line": 24,
+        "col": 11,
+        "span": [
+          290,
+          301
+        ],
+        "operator": "*",
+        "left": {
+          "kind": "UnaryExpr",
+          "line": 24,
+          "col": 11,
+          "span": [
+            290,
+            297
+          ],
+          "operator": "-",
+          "argument": {
+            "kind": "Identifier",
+            "line": 24,
+            "col": 12,
+            "span": [
+              291,
+              297
+            ],
+            "name": "summed"
+          }
+        },
+        "right": {
+          "kind": "NumberLiteral",
+          "line": 24,
+          "col": 21,
+          "span": [
+            300,
+            301
+          ],
+          "value": 2
+        }
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 25,
+      "col": 1,
+      "span": [
+        302,
+        348
+      ],
+      "id": "prec",
+      "init": {
+        "kind": "PipeExpr",
+        "line": 25,
+        "col": 12,
+        "span": [
+          313,
+          348
+        ],
+        "stages": [
+          {
+            "kind": "BinaryExpr",
+            "line": 25,
+            "col": 12,
+            "span": [
+              313,
+              340
+            ],
+            "operator": "&&",
+            "left": {
+              "kind": "BinaryExpr",
+              "line": 25,
+              "col": 12,
+              "span": [
+                313,
+                327
+              ],
+              "operator": "==",
+              "left": {
+                "kind": "BinaryExpr",
+                "line": 25,
+                "col": 12,
+                "span": [
+                  313,
+                  322
+                ],
+                "operator": "+",
+                "left": {
+                  "kind": "NumberLiteral",
+                  "line": 25,
+                  "col": 12,
+                  "span": [
+                    313,
+                    314
+                  ],
+                  "value": 1
+                },
+                "right": {
+                  "kind": "BinaryExpr",
+                  "line": 25,
+                  "col": 16,
+                  "span": [
+                    317,
+                    322
+                  ],
+                  "operator": "*",
+                  "left": {
+                    "kind": "NumberLiteral",
+                    "line": 25,
+                    "col": 16,
+                    "span": [
+                      317,
+                      318
+                    ],
+                    "value": 2
+                  },
+                  "right": {
+                    "kind": "NumberLiteral",
+                    "line": 25,
+                    "col": 20,
+                    "span": [
+                      321,
+                      322
+                    ],
+                    "value": 3
+                  }
+                }
+              },
+              "right": {
+                "kind": "NumberLiteral",
+                "line": 25,
+                "col": 25,
+                "span": [
+                  326,
+                  327
+                ],
+                "value": 7
+              }
+            },
+            "right": {
+              "kind": "UnaryExpr",
+              "line": 25,
+              "col": 30,
+              "span": [
+                331,
+                340
+              ],
+              "operator": "not",
+              "argument": {
+                "kind": "BooleanLiteral",
+                "line": 25,
+                "col": 34,
+                "span": [
+                  335,
+                  340
+                ],
+                "value": false
+              }
+            }
+          },
+          {
+            "kind": "Identifier",
+            "line": 25,
+            "col": 42,
+            "span": [
+              343,
+              348
+            ],
+            "name": "upper"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 26,
+      "col": 1,
+      "span": [
+        349,
+        375
+      ],
+      "id": "arith",
+      "init": {
+        "kind": "BinaryExpr",
+        "line": 26,
+        "col": 13,
+        "span": [
+          361,
+          375
+        ],
+        "operator": "-",
+        "left": {
+          "kind": "BinaryExpr",
+          "line": 26,
+          "col": 13,
+          "span": [
+            361,
+            371
+          ],
+          "operator": "-",
+          "left": {
+            "kind": "NumberLiteral",
+            "line": 26,
+            "col": 13,
+            "span": [
+              361,
+              363
+            ],
+            "value": 10
+          },
+          "right": {
+            "kind": "BinaryExpr",
+            "line": 26,
+            "col": 18,
+            "span": [
+              366,
+              371
+            ],
+            "operator": "/",
+            "left": {
+              "kind": "NumberLiteral",
+              "line": 26,
+              "col": 18,
+              "span": [
+                366,
+                367
+              ],
+              "value": 4
+            },
+            "right": {
+              "kind": "NumberLiteral",
+              "line": 26,
+              "col": 22,
+              "span": [
+                370,
+                371
+              ],
+              "value": 2
+            }
+          }
+        },
+        "right": {
+          "kind": "NumberLiteral",
+          "line": 26,
+          "col": 26,
+          "span": [
+            374,
+            375
+          ],
+          "value": 1
+        }
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 27,
+      "col": 1,
+      "span": [
+        376,
+        402
+      ],
+      "id": "logic",
+      "init": {
+        "kind": "BinaryExpr",
+        "line": 27,
+        "col": 13,
+        "span": [
+          388,
+          402
+        ],
+        "operator": "==",
+        "left": {
+          "kind": "UnaryExpr",
+          "line": 27,
+          "col": 13,
+          "span": [
+            388,
+            393
+          ],
+          "operator": "not",
+          "argument": {
+            "kind": "Identifier",
+            "line": 27,
+            "col": 17,
+            "span": [
+              392,
+              393
+            ],
+            "name": "i"
+          }
+        },
+        "right": {
+          "kind": "Identifier",
+          "line": 27,
+          "col": 22,
+          "span": [
+            397,
+            402
+          ],
+          "name": "total"
+        }
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 28,
+      "col": 1,
+      "span": [
+        403,
+        432
+      ],
+      "id": "cmp",
+      "init": {
+        "kind": "BinaryExpr",
+        "line": 28,
+        "col": 11,
+        "span": [
+          413,
+          432
+        ],
+        "operator": "||",
+        "left": {
+          "kind": "BinaryExpr",
+          "line": 28,
+          "col": 11,
+          "span": [
+            413,
+            422
+          ],
+          "operator": "<",
+          "left": {
+            "kind": "Identifier",
+            "line": 28,
+            "col": 11,
+            "span": [
+              413,
+              414
+            ],
+            "name": "i"
+          },
+          "right": {
+            "kind": "Identifier",
+            "line": 28,
+            "col": 15,
+            "span": [
+              417,
+              422
+            ],
+            "name": "total"
+          }
+        },
+        "right": {
+          "kind": "BinaryExpr",
+          "line": 28,
+          "col": 24,
+          "span": [
+            426,
+            432
+          ],
+          "operator": ">=",
+          "left": {
+            "kind": "NumberLiteral",
+            "line": 28,
+            "col": 24,
+            "span": [
+              426,
+              427
+            ],
+            "value": 3
+          },
+          "right": {
+            "kind": "NumberLiteral",
+            "line": 28,
+            "col": 29,
+            "span": [
+              431,
+              432
+            ],
+            "value": 4
+          }
+        }
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 29,
+      "col": 1,
+      "span": [
+        433,
+        464
+      ],
+      "id": "cmp2",
+      "init": {
+        "kind": "BinaryExpr",
+        "line": 29,
+        "col": 12,
+        "span": [
+          444,
+          464
+        ],
+        "operator": "&&",
+        "left": {
+          "kind": "BinaryExpr",
+          "line": 29,
+          "col": 12,
+          "span": [
+            444,
+            454
+          ],
+          "operator": "!=",
+          "left": {
+            "kind": "Identifier",
+            "line": 29,
+            "col": 12,
+            "span": [
+              444,
+              445
+            ],
+            "name": "i"
+          },
+          "right": {
+            "kind": "Identifier",
+            "line": 29,
+            "col": 17,
+            "span": [
+              449,
+              454
+            ],
+            "name": "total"
+          }
+        },
+        "right": {
+          "kind": "BinaryExpr",
+          "line": 29,
+          "col": 26,
+          "span": [
+            458,
+            464
+          ],
+          "operator": "<=",
+          "left": {
+            "kind": "NumberLiteral",
+            "line": 29,
+            "col": 26,
+            "span": [
+              458,
+              459
+            ],
+            "value": 2
+          },
+          "right": {
+            "kind": "NumberLiteral",
+            "line": 29,
+            "col": 31,
+            "span": [
+              463,
+              464
+            ],
+            "value": 3
+          }
+        }
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 31,
+      "col": 1,
+      "span": [
+        466,
+        480
+      ],
+      "id": "empty",
+      "init": {
+        "kind": "ArrayLiteral",
+        "line": 31,
+        "col": 13,
+        "span": [
+          478,
+          480
+        ],
+        "elements": []
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 32,
+      "col": 1,
+      "span": [
+        481,
+        516
+      ],
+      "id": "nested",
+      "init": {
+        "kind": "ArrayLiteral",
+        "line": 32,
+        "col": 14,
+        "span": [
+          494,
+          516
+        ],
+        "elements": [
+          {
+            "kind": "ArrayLiteral",
+            "line": 32,
+            "col": 15,
+            "span": [
+              495,
+              501
+            ],
+            "elements": [
+              {
+                "kind": "NumberLiteral",
+                "line": 32,
+                "col": 16,
+                "span": [
+                  496,
+                  497
+                ],
+                "value": 1
+              },
+              {
+                "kind": "NumberLiteral",
+                "line": 32,
+                "col": 19,
+                "span": [
+                  499,
+                  500
+                ],
+                "value": 2
+              }
+            ]
+          },
+          {
+            "kind": "ArrayLiteral",
+            "line": 32,
+            "col": 23,
+            "span": [
+              503,
+              511
+            ],
+            "elements": [
+              {
+                "kind": "NumberLiteral",
+                "line": 32,
+                "col": 24,
+                "span": [
+                  504,
+                  505
+                ],
+                "value": 3
+              },
+              {
+                "kind": "ArrayLiteral",
+                "line": 32,
+                "col": 27,
+                "span": [
+                  507,
+                  510
+                ],
+                "elements": [
+                  {
+                    "kind": "NumberLiteral",
+                    "line": 32,
+                    "col": 28,
+                    "span": [
+                      508,
+                      509
+                    ],
+                    "value": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "ArrayLiteral",
+            "line": 32,
+            "col": 33,
+            "span": [
+              513,
+              515
+            ],
+            "elements": []
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 33,
+      "col": 1,
+      "span": [
+        517,
+        552
+      ],
+      "id": "multi",
+      "init": {
+        "kind": "ArrayLiteral",
+        "line": 33,
+        "col": 13,
+        "span": [
+          529,
+          552
+        ],
+        "elements": [
+          {
+            "kind": "NumberLiteral",
+            "line": 34,
+            "col": 5,
+            "span": [
+              535,
+              536
+            ],
+            "value": 1
+          },
+          {
+            "kind": "NumberLiteral",
+            "line": 35,
+            "col": 5,
+            "span": [
+              542,
+              543
+            ],
+            "value": 2
+          },
+          {
+            "kind": "NumberLiteral",
+            "line": 36,
+            "col": 5,
+            "span": [
+              549,
+              550
+            ],
+            "value": 3
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 39,
+      "col": 1,
+      "span": [
+        554,
+        645
+      ],
+      "id": "obj",
+      "init": {
+        "kind": "ObjectLiteral",
+        "line": 39,
+        "col": 11,
+        "span": [
+          564,
+          645
+        ],
+        "properties": [
+          {
+            "kind": "ObjectProperty",
+            "line": 39,
+            "col": 13,
+            "span": [
+              566,
+              580
+            ],
+            "key": "method",
+            "value": {
+              "kind": "StringLiteral",
+              "line": 39,
+              "col": 21,
+              "span": [
+                574,
+                580
+              ],
+              "value": "POST"
+            }
+          },
+          {
+            "kind": "ObjectProperty",
+            "line": 39,
+            "col": 29,
+            "span": [
+              582,
+              592
+            ],
+            "key": "retries",
+            "value": {
+              "kind": "NumberLiteral",
+              "line": 39,
+              "col": 38,
+              "span": [
+                591,
+                592
+              ],
+              "value": 2
+            }
+          },
+          {
+            "kind": "ObjectProperty",
+            "line": 39,
+            "col": 41,
+            "span": [
+              594,
+              643
+            ],
+            "key": "nested",
+            "value": {
+              "kind": "ObjectLiteral",
+              "line": 39,
+              "col": 49,
+              "span": [
+                602,
+                643
+              ],
+              "properties": [
+                {
+                  "kind": "ObjectProperty",
+                  "line": 39,
+                  "col": 51,
+                  "span": [
+                    604,
+                    614
+                  ],
+                  "key": "deep",
+                  "value": {
+                    "kind": "BooleanLiteral",
+                    "line": 39,
+                    "col": 57,
+                    "span": [
+                      610,
+                      614
+                    ],
+                    "value": true
+                  }
+                },
+                {
+                  "kind": "ObjectProperty",
+                  "line": 39,
+                  "col": 63,
+                  "span": [
+                    616,
+                    626
+                  ],
+                  "key": "off",
+                  "value": {
+                    "kind": "BooleanLiteral",
+                    "line": 39,
+                    "col": 68,
+                    "span": [
+                      621,
+                      626
+                    ],
+                    "value": false
+                  }
+                },
+                {
+                  "kind": "ObjectProperty",
+                  "line": 39,
+                  "col": 75,
+                  "span": [
+                    628,
+                    641
+                  ],
+                  "key": "nothing",
+                  "value": {
+                    "kind": "NullLiteral",
+                    "line": 39,
+                    "col": 84,
+                    "span": [
+                      637,
+                      641
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 40,
+      "col": 1,
+      "span": [
+        646,
+        660
+      ],
+      "id": "blank",
+      "init": {
+        "kind": "ObjectLiteral",
+        "line": 40,
+        "col": 13,
+        "span": [
+          658,
+          660
+        ],
+        "properties": []
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 42,
+      "col": 1,
+      "span": [
+        662,
+        671
+      ],
+      "id": "a",
+      "init": {
+        "kind": "NumberLiteral",
+        "line": 42,
+        "col": 9,
+        "span": [
+          670,
+          671
+        ],
+        "value": 0
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 43,
+      "col": 1,
+      "span": [
+        672,
+        681
+      ],
+      "id": "b",
+      "init": {
+        "kind": "NumberLiteral",
+        "line": 43,
+        "col": 9,
+        "span": [
+          680,
+          681
+        ],
+        "value": 0
+      }
+    },
+    {
+      "kind": "ExprStmt",
+      "line": 44,
+      "col": 1,
+      "span": [
+        682,
+        691
+      ],
+      "expression": {
+        "kind": "AssignExpr",
+        "line": 44,
+        "col": 1,
+        "span": [
+          682,
+          691
+        ],
+        "id": "a",
+        "value": {
+          "kind": "AssignExpr",
+          "line": 44,
+          "col": 5,
+          "span": [
+            686,
+            691
+          ],
+          "id": "b",
+          "value": {
+            "kind": "NumberLiteral",
+            "line": 44,
+            "col": 9,
+            "span": [
+              690,
+              691
+            ],
+            "value": 9
+          }
+        }
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 46,
+      "col": 1,
+      "span": [
+        693,
+        733
+      ],
+      "id": "msg",
+      "init": {
+        "kind": "FStringExpr",
+        "line": 46,
+        "col": 11,
+        "span": [
+          703,
+          733
+        ],
+        "parts": [
+          "n=",
+          {
+            "kind": "Identifier",
+            "line": 46,
+            "col": 16,
+            "span": [
+              708,
+              713
+            ],
+            "name": "total"
+          },
+          ", ok=",
+          {
+            "kind": "UnaryExpr",
+            "line": 46,
+            "col": 28,
+            "span": [
+              720,
+              729
+            ],
+            "operator": "not",
+            "argument": {
+              "kind": "BooleanLiteral",
+              "line": 46,
+              "col": 32,
+              "span": [
+                724,
+                729
+              ],
+              "value": false
+            }
+          },
+          "\n"
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 47,
+      "col": 1,
+      "span": [
+        734,
+        760
+      ],
+      "id": "lead",
+      "init": {
+        "kind": "FStringExpr",
+        "line": 47,
+        "col": 12,
+        "span": [
+          745,
+          760
+        ],
+        "parts": [
+          "sum: ",
+          {
+            "kind": "Identifier",
+            "line": 47,
+            "col": 20,
+            "span": [
+              753,
+              758
+            ],
+            "name": "total"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "LetStmt",
+      "line": 48,
+      "col": 1,
+      "span": [
+        761,
+        796
+      ],
+      "id": "chained",
+      "init": {
+        "kind": "PipeExpr",
+        "line": 48,
+        "col": 15,
+        "span": [
+          775,
+          796
+        ],
+        "stages": [
+          {
+            "kind": "StringLiteral",
+            "line": 48,
+            "col": 15,
+            "span": [
+              775,
+              778
+            ],
+            "value": "x"
+          },
+          {
+            "kind": "Identifier",
+            "line": 48,
+            "col": 21,
+            "span": [
+              781,
+              786
+            ],
+            "name": "upper"
+          },
+          {
+            "kind": "CallExpr",
+            "line": 48,
+            "col": 29,
+            "span": [
+              789,
+              796
+            ],
+            "callee": {
+              "kind": "Identifier",
+              "line": 48,
+              "col": 29,
+              "span": [
+                789,
+                793
+              ],
+              "name": "wrap"
+            },
+            "args": [
+              {
+                "kind": "NumberLiteral",
+                "line": 48,
+                "col": 34,
+                "span": [
+                  794,
+                  795
+                ],
+                "value": 3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "IfStmt",
+      "line": 50,
+      "col": 1,
+      "span": [
+        798,
+        912
+      ],
+      "test": {
+        "kind": "BinaryExpr",
+        "line": 50,
+        "col": 4,
+        "span": [
+          801,
+          810
+        ],
+        "operator": ">",
+        "left": {
+          "kind": "Identifier",
+          "line": 50,
+          "col": 4,
+          "span": [
+            801,
+            806
+          ],
+          "name": "total"
+        },
+        "right": {
+          "kind": "NumberLiteral",
+          "line": 50,
+          "col": 12,
+          "span": [
+            809,
+            810
+          ],
+          "value": 3
+        }
+      },
+      "consequent": {
+        "kind": "Block",
+        "line": 50,
+        "col": 14,
+        "span": [
+          811,
+          837
+        ],
+        "body": [
+          {
+            "kind": "LetStmt",
+            "line": 51,
+            "col": 5,
+            "span": [
+              817,
+              835
+            ],
+            "id": "level",
+            "init": {
+              "kind": "StringLiteral",
+              "line": 51,
+              "col": 17,
+              "span": [
+                829,
+                835
+              ],
+              "value": "high"
+            }
+          }
+        ]
+      },
+      "alternate": {
+        "kind": "IfStmt",
+        "line": 52,
+        "col": 8,
+        "span": [
+          843,
+          912
+        ],
+        "test": {
+          "kind": "BinaryExpr",
+          "line": 52,
+          "col": 11,
+          "span": [
+            846,
+            855
+          ],
+          "operator": ">",
+          "left": {
+            "kind": "Identifier",
+            "line": 52,
+            "col": 11,
+            "span": [
+              846,
+              851
+            ],
+            "name": "total"
+          },
+          "right": {
+            "kind": "NumberLiteral",
+            "line": 52,
+            "col": 19,
+            "span": [
+              854,
+              855
+            ],
+            "value": 1
+          }
+        },
+        "consequent": {
+          "kind": "Block",
+          "line": 52,
+          "col": 21,
+          "span": [
+            856,
+            881
+          ],
+          "body": [
+            {
+              "kind": "LetStmt",
+              "line": 53,
+              "col": 5,
+              "span": [
+                862,
+                879
+              ],
+              "id": "level",
+              "init": {
+                "kind": "StringLiteral",
+                "line": 53,
+                "col": 17,
+                "span": [
+                  874,
+                  879
+                ],
+                "value": "mid"
+              }
+            }
+          ]
+        },
+        "alternate": {
+          "kind": "Block",
+          "line": 54,
+          "col": 8,
+          "span": [
+            887,
+            912
+          ],
+          "body": [
+            {
+              "kind": "LetStmt",
+              "line": 55,
+              "col": 5,
+              "span": [
+                893,
+                910
+              ],
+              "id": "level",
+              "init": {
+                "kind": "StringLiteral",
+                "line": 55,
+                "col": 17,
+                "span": [
+                  905,
+                  910
+                ],
+                "value": "low"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "ForStmt",
+      "line": 58,
+      "col": 1,
+      "span": [
+        914,
+        960
+      ],
+      "iterator": "item",
+      "iterable": {
+        "kind": "Identifier",
+        "line": 58,
+        "col": 13,
+        "span": [
+          926,
+          931
+        ],
+        "name": "multi"
+      },
+      "body": {
+        "kind": "Block",
+        "line": 58,
+        "col": 19,
+        "span": [
+          932,
+          960
+        ],
+        "body": [
+          {
+            "kind": "ExprStmt",
+            "line": 59,
+            "col": 5,
+            "span": [
+              938,
+              958
+            ],
+            "expression": {
+              "kind": "AssignExpr",
+              "line": 59,
+              "col": 5,
+              "span": [
+                938,
+                958
+              ],
+              "id": "total",
+              "value": {
+                "kind": "BinaryExpr",
+                "line": 59,
+                "col": 13,
+                "span": [
+                  946,
+                  958
+                ],
+                "operator": "+",
+                "left": {
+                  "kind": "Identifier",
+                  "line": 59,
+                  "col": 13,
+                  "span": [
+                    946,
+                    951
+                  ],
+                  "name": "total"
+                },
+                "right": {
+                  "kind": "Identifier",
+                  "line": 59,
+                  "col": 21,
+                  "span": [
+                    954,
+                    958
+                  ],
+                  "name": "item"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
