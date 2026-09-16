@@ -72,3 +72,9 @@ export class EvalError extends PlacitumErrorBase {
     super({ ...init, phase: 'eval' });
   }
 }
+
+export class CliError extends PlacitumErrorBase {
+  constructor(init: Omit<PlacitumErrorInit, 'phase'>) {
+    super({ ...init, phase: 'cli' });
+  }
+}
