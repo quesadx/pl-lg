@@ -1,0 +1,3 @@
+needs net("*")
+
+let page = curl!("https://example.com")

@@ -1,0 +1,7 @@
+{
+  "code": "E403_GUARD_PATH_TRAVERSAL",
+  "phase": "guard",
+  "severity": "error",
+  "message": "Canonicalization of \"/safe/../etc/passwd\" resolves outside every granted fs.read() capability.",
+  "hint": "The literal string-matches needs fs.read(\"/safe/**\") statically, so extraction passes; the guard's realpath reveals the escape. Request the canonical target explicitly, or remove the traversal."
+}
