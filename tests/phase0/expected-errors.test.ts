@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PlacitumErrorSchema } from '../../src/shared/errors.js';
+import { PlacitumErrorSchema } from '../../src/shared/error-schema.js';
 
 const negativeDir = new URL('../capability/negative/', import.meta.url);
 

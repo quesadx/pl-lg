@@ -1,0 +1,7 @@
+{
+  "code": "E302_EXTRACT_INVALID_GLOB",
+  "phase": "extract",
+  "severity": "error",
+  "message": "needs fs.read(\"a**b\"): \"**\" is only valid as a complete path segment.",
+  "hint": "Write the glob as whole segments, e.g. \"/a/**/b\"."
+}

@@ -1,0 +1,21 @@
+#!strict
+
+needs fs.read("/data/*.json"), fs.write("/out/*"), net("*.example.com"), exec("/usr/bin/*"), env(HOME), env(DEBUG?)
+
+fn save(name) {
+    fs.writeFile!(name)
+}
+
+fn save_log() needs only(fs.write("/out/*")) {
+    fs.writeFile!("/out/log.txt")
+}
+
+fn grab(u) needs only(net("*.example.com")) {
+    return u | curl!()
+}
+
+let raw = fs.readFile!("/data/app.json") | json.parse
+let guess = fs.readFile!(raw.path)
+let page = curl!("https://api.example.com/x")
+
+print!("done")

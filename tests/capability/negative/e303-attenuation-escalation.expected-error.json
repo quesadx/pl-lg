@@ -1,0 +1,7 @@
+{
+  "code": "E303_EXTRACT_ATTENUATION_ESCALATION",
+  "phase": "extract",
+  "severity": "error",
+  "message": "only(net(\"evil.com\")) requests a capability outside the enclosing scope's manifest.",
+  "hint": "The function may only attenuate to a subset of the script's needs tokens."
+}

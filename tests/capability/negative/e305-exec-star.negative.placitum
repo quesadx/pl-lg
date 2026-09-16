@@ -1,0 +1,3 @@
+needs exec("*")
+
+let x = 1
