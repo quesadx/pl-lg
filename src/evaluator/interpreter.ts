@@ -1,11 +1,11 @@
+import { collectStrictDiagnostics } from '../analysis/strict.js';
 import type { BinaryExpr, Block, Expr, FnDecl, Program, Statement } from '../ast/ast.js';
 import type { Guard } from '../capability/guard.js';
 import { assertNever } from '../shared/assert-never.js';
 import { CapabilityViolationError, EvalError } from '../shared/errors.js';
 import type { PlacitumErrorInit } from '../shared/errors.js';
 import { deepEquals, display, isCallable, truthy, typeName } from '../shared/values.js';
-import type { CallableValue, NativeSig, TypeName, Value } from '../shared/values.js';
-import { BANG_SIGNATURES, PURE_SIGNATURES } from '../stdlib/stdlib.js';
+import type { CallableValue, Value } from '../shared/values.js';
 import type { BangFn } from '../stdlib/stdlib.js';
 
 // Phase 5 — visitor-pattern interpreter: ASTNode + Environment -> Output.
@@ -490,213 +490,15 @@ function execBody(body: readonly Statement[], env: Env, guard: Guard, ctx: EvalC
   for (const stmt of body) execStmt(stmt, env, guard, ctx);
 }
 
-// ---- #!strict pipe-chain pre-pass (Section 11 Phase 5) ----
-// Runs before any evaluation; a statically-known incompatibility anywhere in a
-// chain fails before the chain's first side effect.
 
-function inferType(expr: Expr): TypeName {
-  switch (expr.kind) {
-    case 'StringLiteral':
-      return 'string';
-    case 'NumberLiteral':
-      return 'number';
-    case 'BooleanLiteral':
-      return 'boolean';
-    case 'NullLiteral':
-      return 'null';
-    case 'FStringExpr':
-      return 'string';
-    case 'ArrayLiteral':
-      return 'array';
-    case 'ObjectLiteral':
-      return 'object';
-    case 'Identifier':
-    case 'MemberExpr':
-      return 'unknown';
-    case 'PipeExpr':
-      return inferType(expr.stages[expr.stages.length - 1] as Expr);
-    case 'BangCall':
-      return signatureRet(
-        Object.hasOwn(BANG_SIGNATURES, expr.target) ? BANG_SIGNATURES[expr.target] : undefined,
-      );
-    case 'CallExpr':
-      return signatureRet(calleeSignature(expr.callee));
-    case 'BinaryExpr':
-      switch (expr.operator) {
-        case '+': {
-          const left = inferType(expr.left);
-          const right = inferType(expr.right);
-          if (left === 'string' && right === 'string') return 'string';
-          if (left === 'number' && right === 'number') return 'number';
-          return 'unknown';
-        }
-        case '-':
-        case '*':
-        case '/':
-          return 'number';
-        default:
-          return 'boolean'; // comparisons, ==/!=, &&/||
-      }
-    case 'UnaryExpr':
-      return expr.operator === '-' ? 'number' : 'boolean';
-    case 'AssignExpr':
-      return inferType(expr.value);
-    default:
-      return assertNever(expr);
-  }
-}
-
-function calleeSignature(callee: Expr): NativeSig | null {
-  if (callee.kind === 'Identifier') return null; // user fns are untyped in v1
-  if (callee.kind === 'MemberExpr' && callee.object.kind === 'Identifier') {
-    const name = `${callee.object.name}.${callee.property}`;
-    return Object.hasOwn(PURE_SIGNATURES, name) ? (PURE_SIGNATURES[name] ?? null) : null;
-  }
-  return null;
-}
-
-// 'any' as a return type carries no static information.
-function signatureRet(sig: NativeSig | null | undefined): TypeName {
-  const ret = sig?.ret;
-  return ret === undefined || ret === 'any' ? 'unknown' : ret;
-}
-
-function stageSignature(stage: Expr): NativeSig | null {
-  if (stage.kind === 'BangCall') {
-    return Object.hasOwn(BANG_SIGNATURES, stage.target) ? (BANG_SIGNATURES[stage.target] ?? null) : null;
-  }
-  if (stage.kind === 'CallExpr') return calleeSignature(stage.callee);
-  if (stage.kind === 'Identifier' || stage.kind === 'MemberExpr') return calleeSignature(stage);
-  return null;
-}
-
-function describeStage(stage: Expr): string {
-  if (stage.kind === 'BangCall') return `${stage.target}!`;
-  if (stage.kind === 'Identifier') return stage.name;
-  if (stage.kind === 'MemberExpr' && stage.object.kind === 'Identifier') return `${stage.object.name}.${stage.property}`;
-  if (stage.kind === 'CallExpr') return describeStage(stage.callee);
-  return stage.kind;
-}
-
-function checkPipe(pipe: { stages: readonly Expr[] }): void {
-  const stages = pipe.stages;
-  let produced = inferType(stages[0] as Expr);
-  for (let i = 1; i < stages.length; i++) {
-    const stage = stages[i] as Expr;
-    const sig = stageSignature(stage);
-    const expected = sig?.params[0];
-    if (
-      expected !== undefined &&
-      expected !== 'any' &&
-      expected !== 'unknown' &&
-      produced !== 'unknown' &&
-      produced !== expected
-    ) {
-      throw located(
-        evalError(
-          'E505_EVAL_PIPE_TYPE_ERROR',
-          `strict pipe-chain check: stage ${i + 1} (${describeStage(stage)}) expects ${expected} as its first argument, but stage ${i} (${describeStage(stages[i - 1] as Expr)}) produces ${produced}.`,
-          "Fix the chain so the piped value matches each stage's first parameter, or drop #!strict.",
-        ),
-        stage,
-      );
-    }
-    const ret = sig?.ret;
-    produced = ret === undefined || ret === 'any' ? inferType(stage) : ret;
-  }
-}
-
-function checkExpr(expr: Expr): void {
-  switch (expr.kind) {
-    case 'PipeExpr':
-      checkPipe(expr);
-      expr.stages.forEach(checkExpr);
-      return;
-    case 'BangCall':
-      expr.args.forEach(checkExpr);
-      return;
-    case 'CallExpr':
-      checkExpr(expr.callee);
-      expr.args.forEach(checkExpr);
-      return;
-    case 'MemberExpr':
-      checkExpr(expr.object);
-      return;
-    case 'FStringExpr':
-      for (const part of expr.parts) if (typeof part !== 'string') checkExpr(part);
-      return;
-    case 'ArrayLiteral':
-      expr.elements.forEach(checkExpr);
-      return;
-    case 'ObjectLiteral':
-      for (const property of expr.properties) checkExpr(property.value);
-      return;
-    case 'BinaryExpr':
-      checkExpr(expr.left);
-      checkExpr(expr.right);
-      return;
-    case 'UnaryExpr':
-      checkExpr(expr.argument);
-      return;
-    case 'AssignExpr':
-      checkExpr(expr.value);
-      return;
-    case 'Identifier':
-    case 'StringLiteral':
-    case 'NumberLiteral':
-    case 'BooleanLiteral':
-    case 'NullLiteral':
-      return;
-    default:
-      return assertNever(expr);
-  }
-}
-
-function checkStmt(stmt: Statement): void {
-  switch (stmt.kind) {
-    case 'LetStmt':
-      checkExpr(stmt.init);
-      return;
-    case 'FnDecl':
-      checkBody(stmt.body.body);
-      return;
-    case 'IfStmt':
-      checkExpr(stmt.test);
-      checkBody(stmt.consequent.body);
-      if (stmt.alternate !== null) {
-        if (stmt.alternate.kind === 'IfStmt') checkStmt(stmt.alternate);
-        else checkBody(stmt.alternate.body);
-      }
-      return;
-    case 'WhileStmt':
-      checkExpr(stmt.test);
-      checkBody(stmt.body.body);
-      return;
-    case 'ForStmt':
-      checkExpr(stmt.iterable);
-      checkBody(stmt.body.body);
-      return;
-    case 'ReturnStmt':
-      if (stmt.argument !== null) checkExpr(stmt.argument);
-      return;
-    case 'ExprStmt':
-      checkExpr(stmt.expression);
-      return;
-    case 'NeedsDecl':
-      return;
-    default:
-      return assertNever(stmt);
-  }
-}
-
-function checkBody(body: readonly Statement[]): void {
-  for (const stmt of body) checkStmt(stmt);
-}
 
 export function evaluate(program: Program, ctx: EvalContext): void {
-  if (program.pragmas.includes('strict')) {
-    for (const stmt of program.body) checkStmt(stmt);
-  }
+  // Section 11 Phase 5: the whole-program pre-pass fails before the first
+  // statement runs. evaluate keeps the throw-first contract; the collector
+  // (which owns the #!strict gate) is the single implementation the LSP
+  // also consumes.
+  const [strictError] = collectStrictDiagnostics(program);
+  if (strictError !== undefined) throw strictError;
   const env = new Env(null);
   for (const [name, value] of ctx.globals) env.define(name, value);
   try {

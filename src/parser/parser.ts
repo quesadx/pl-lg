@@ -39,6 +39,7 @@ import type {
   WhileStmt,
 } from '../ast/ast.js';
 import { ParseError } from '../shared/errors.js';
+import type { PlacitumError } from '../shared/errors.js';
 
 // Section 4 EBNF, exactly: recursive-descent statements, Pratt expressions.
 // Precedence (low -> high): `=` (right-assoc) | `|` | `||` | `&&` | `==`/`!=`
@@ -48,6 +49,19 @@ import { ParseError } from '../shared/errors.js';
 // field order) is load-bearing: parser goldens are compared byte-for-byte.
 export function parse(tokens: Token[]): Program {
   return new Parser(tokens).run();
+}
+
+export interface TolerantParseResult {
+  program: Program;
+  diagnostics: PlacitumError[];
+}
+
+// Never throws on a ParseError: records it, resyncs at the statement level and
+// keeps building a partial Program (failed statements are dropped). Non-Parse
+// errors still propagate — they are bugs, not input problems.
+export function parseTolerant(tokens: Token[]): TolerantParseResult {
+  const parser = new Parser(tokens, true);
+  return { program: parser.run(), diagnostics: parser.errors };
 }
 
 const TOKEN_DISPLAY: Partial<Record<TokenKind, string>> = {
@@ -118,13 +132,42 @@ class Parser {
   // used to reject `(x).y!(...)` as a bang-call target (Section 4 rule).
   private primaryParenthesized = false;
   private readonly eofTok: Token;
+  readonly errors: PlacitumError[] = [];
 
-  constructor(private readonly tokens: Token[]) {
+  constructor(
+    private readonly tokens: Token[],
+    private readonly tolerant = false,
+  ) {
     const last = tokens[tokens.length - 1];
     this.eofTok =
       last !== undefined && last.kind === 'EOF'
         ? last
         : { kind: 'EOF', line: 1, col: 1, span: [0, 0] };
+  }
+
+  // Panic-mode resync: skip to the next statement boundary. NEWLINE is
+  // consumed; RBRACE and EOF are left for the enclosing loop (parseBlock
+  // closes on RBRACE, both loops stop on EOF). groupDepth resets because the
+  // abandoned statement may have left a group open — otherwise tok() would
+  // keep swallowing the NEWLINEs this recovery depends on.
+  private sync(): void {
+    this.groupDepth = 0;
+    for (;;) {
+      const t = this.raw(0);
+      if (t.kind === 'NEWLINE') {
+        this.pos++;
+        return;
+      }
+      if (t.kind === 'RBRACE' || t.kind === 'EOF') return;
+      this.pos++;
+    }
+  }
+
+  private recover(err: unknown): boolean {
+    if (!this.tolerant || !(err instanceof ParseError)) return false;
+    this.errors.push(err.toEnvelope());
+    this.sync();
+    return true;
   }
 
   // ---- Token access ----
@@ -149,13 +192,27 @@ class Parser {
 
   // ---- Errors ----
 
-  private failE201(t: Token, hint: string): never {
+  private makeE201(t: Token, hint: string): ParseError {
     const display = TOKEN_DISPLAY[t.kind] ?? String(t.value ?? t.kind);
-    throw new ParseError({
+    return new ParseError({
       code: 'E201_PARSE_UNEXPECTED_TOKEN',
       message: `Unexpected token \`${display}\`.`,
       location: { line: t.line, col: t.col, span: [...t.span] },
       hint,
+    });
+  }
+
+  private failE201(t: Token, hint: string): never {
+    throw this.makeE201(t, hint);
+  }
+
+  private makeE202(t: Token): ParseError {
+    return new ParseError({
+      code: 'E202_PARSE_NEEDS_NOT_AT_TOP',
+      message:
+        '`needs` is only allowed at the top of the program or directly after a function\u2019s parameter list.',
+      location: { line: t.line, col: t.col, span: [...t.span] },
+      hint: 'Move this declaration to a legal position.',
     });
   }
 
@@ -194,16 +251,42 @@ class Parser {
       if (t.kind === 'EOF') {
         break;
       }
+      if (t.kind === 'RBRACE') {
+        // Stray `}` at top level: parseStatement would fail here, so handle it
+        // explicitly to guarantee forward progress in tolerant mode.
+        if (!this.tolerant) this.failE201(t, 'Expected an expression.');
+        this.errors.push(this.makeE201(t, 'Expected an expression.').toEnvelope());
+        this.pos++;
+        continue;
+      }
       if (t.kind === 'NEEDS') {
         // Section 4: top-level `needs` only before the first non-needs statement.
         if (body.length > 0) {
-          this.failE202(t);
+          if (!this.tolerant) this.failE202(t);
+          this.errors.push(this.makeE202(t).toEnvelope());
+          this.sync();
+          continue;
         }
-        needs.push(this.parseNeedsDecl());
+        try {
+          needs.push(this.parseNeedsDecl());
+        } catch (err) {
+          if (!this.recover(err)) throw err;
+        }
         continue;
       }
-      body.push(this.parseStatement());
-      this.expectTerminator();
+      let stmt: Statement;
+      try {
+        stmt = this.parseStatement();
+      } catch (err) {
+        if (!this.recover(err)) throw err;
+        continue;
+      }
+      body.push(stmt);
+      try {
+        this.expectTerminator();
+      } catch (err) {
+        if (!this.recover(err)) throw err;
+      }
     }
     return {
       kind: 'Program',
@@ -238,13 +321,7 @@ class Parser {
   }
 
   private failE202(t: Token): never {
-    throw new ParseError({
-      code: 'E202_PARSE_NEEDS_NOT_AT_TOP',
-      message:
-        '`needs` is only allowed at the top of the program or directly after a function\u2019s parameter list.',
-      location: { line: t.line, col: t.col, span: [...t.span] },
-      hint: 'Move this declaration to a legal position.',
-    });
+    throw this.makeE202(t);
   }
 
   private parseStatement(): Statement {
@@ -434,15 +511,28 @@ class Parser {
         break;
       }
       if (t.kind === 'EOF') {
-        throw new ParseError({
+        const err = new ParseError({
           code: 'E203_PARSE_UNTERMINATED_BLOCK',
           message: 'Block is not closed with `}` before end of input.',
           location: { line: t.line, col: t.col, span: [...t.span] },
           hint: 'Add the missing `}`.',
         });
+        if (!this.tolerant) throw err;
+        this.errors.push(err.toEnvelope());
+        close = t; // synthetic close at EOF lets the enclosing statement finish
+        break;
       }
-      body.push(this.parseStatement());
-      this.expectTerminator();
+      try {
+        body.push(this.parseStatement());
+      } catch (err) {
+        if (!this.recover(err)) throw err;
+        continue;
+      }
+      try {
+        this.expectTerminator();
+      } catch (err) {
+        if (!this.recover(err)) throw err;
+      }
     }
     const block: Block = {
       kind: 'Block',
