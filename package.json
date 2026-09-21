@@ -4,10 +4,22 @@
   "private": true,
   "type": "module",
   "description": "Capability-secure shell language",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "bin": {
     "placitum": "dist/cli/bin.js"
   },
   "scripts": {
+    "prepare": "npm run build",
     "check-deps": "node scripts/check-deps.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",

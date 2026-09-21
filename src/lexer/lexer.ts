@@ -1,4 +1,5 @@
 import { LexError } from '../shared/errors.js';
+import type { PlacitumError } from '../shared/errors.js';
 
 export type TokenKind =
   | 'PRAGMA'
@@ -56,6 +57,19 @@ export interface Token {
   line: number;
   col: number;
   span: readonly [number, number];
+}
+
+// LSP contract (placitum-lsp-implementation.md §5.2): comments are trivia the
+// rigid Token stream drops; analyzeSource publishes their spans so the server
+// can style them without re-scanning strings by hand.
+export interface CommentTrivia {
+  span: readonly [number, number];
+}
+
+export interface TolerantLexResult {
+  tokens: Token[];
+  comments: CommentTrivia[];
+  diagnostics: PlacitumError[];
 }
 
 // `fs`/`net`/`exec`/`env`/`read`/`write` are deliberately NOT keywords: they
@@ -117,15 +131,30 @@ class Lexer {
   // f-string text mode. Handles nested f-strings for free (it's a stack).
   private readonly fstringDepths: number[] = [];
   private readonly tokens: Token[] = [];
+  // Tolerant mode (LSP): record instead of throw, so one bad character does
+  // not cost the editor its whole token stream. lex() keeps the strict
+  // fail-fast contract; lexTolerant() reads these out.
+  readonly comments: CommentTrivia[] = [];
+  readonly errors: PlacitumError[] = [];
 
-  constructor(private readonly source: string) {}
+  constructor(private readonly source: string, private readonly tolerant = false) {}
 
   run(): Token[] {
     while (this.pos < this.source.length) {
       this.step();
     }
     if (this.fstringDepths.length > 0) {
-      return this.fail(
+      if (!this.tolerant) {
+        return this.fail(
+          'E102_LEX_UNTERMINATED_FSTRING_EXPR',
+          '`{` inside f"..." is not closed before the string ends.',
+          this.line,
+          this.col,
+          [this.pos, this.pos],
+          'Close the interpolation with }.',
+        );
+      }
+      this.report(
         'E102_LEX_UNTERMINATED_FSTRING_EXPR',
         '`{` inside f"..." is not closed before the string ends.',
         this.line,
@@ -133,6 +162,7 @@ class Lexer {
         [this.pos, this.pos],
         'Close the interpolation with }.',
       );
+      this.fstringDepths.length = 0;
     }
     this.push('EOF', this.pos, this.line, this.col);
     return this.tokens;
@@ -188,6 +218,26 @@ class Lexer {
     });
   }
 
+  // Same envelope as fail(), pushed instead of thrown. Recovery is the
+  // caller's job: every report site must guarantee pos advanced.
+  private report(
+    code: string,
+    message: string,
+    line: number,
+    col: number,
+    span: [number, number],
+    hint?: string,
+  ): void {
+    this.errors.push(
+      new LexError({
+        code,
+        message,
+        location: { line, col, span },
+        ...(hint !== undefined ? { hint } : {}),
+      }).toEnvelope(),
+    );
+  }
+
   private step(): void {
     const c = this.ch();
     if (c === ' ' || c === '\t' || c === '\r') {
@@ -234,8 +284,19 @@ class Lexer {
         continue;
       }
       if (c === '#') {
+        const commentStart = this.pos;
         if (this.peek(1) === '!') {
-          return this.fail(
+          if (!this.tolerant) {
+            return this.fail(
+              'E105_LEX_INVALID_PRAGMA',
+              '`#!` is only recognized on physical line 1.',
+              this.line,
+              this.col,
+              [this.pos, this.pos + 2],
+              'Move the pragma to the first line, or use `#` for a comment.',
+            );
+          }
+          this.report(
             'E105_LEX_INVALID_PRAGMA',
             '`#!` is only recognized on physical line 1.',
             this.line,
@@ -243,8 +304,14 @@ class Lexer {
             [this.pos, this.pos + 2],
             'Move the pragma to the first line, or use `#` for a comment.',
           );
+          this.advance();
+          this.advance();
+          this.skipToEol();
+          this.comments.push({ span: [commentStart, this.pos] });
+          continue;
         }
         this.skipToEol();
+        this.comments.push({ span: [commentStart, this.pos] });
         continue;
       }
       break;
@@ -264,7 +331,17 @@ class Lexer {
     const col = this.col;
     if (this.peek(1) === '!') {
       if (line !== 1) {
-        return this.fail(
+        if (!this.tolerant) {
+          return this.fail(
+            'E105_LEX_INVALID_PRAGMA',
+            '`#!` is only recognized on physical line 1.',
+            line,
+            col,
+            [start, start + 2],
+            'Move the pragma to the first line, or use `#` for a comment.',
+          );
+        }
+        this.report(
           'E105_LEX_INVALID_PRAGMA',
           '`#!` is only recognized on physical line 1.',
           line,
@@ -272,17 +349,34 @@ class Lexer {
           [start, start + 2],
           'Move the pragma to the first line, or use `#` for a comment.',
         );
+        this.advance();
+        this.advance();
+        this.skipToEol();
+        this.comments.push({ span: [start, this.pos] });
+        return;
       }
       this.advance();
       this.advance();
       if (!isIdentStart(this.ch())) {
-        return this.fail(
+        if (!this.tolerant) {
+          return this.fail(
+            'E105_LEX_INVALID_PRAGMA',
+            '`#!` must be followed immediately by a pragma name.',
+            this.line,
+            this.col,
+            [start, this.pos],
+          );
+        }
+        this.report(
           'E105_LEX_INVALID_PRAGMA',
           '`#!` must be followed immediately by a pragma name.',
           this.line,
           this.col,
           [start, this.pos],
         );
+        this.skipToEol();
+        this.comments.push({ span: [start, this.pos] });
+        return;
       }
       const nameStart = this.pos;
       while (isIdentPart(this.ch())) {
@@ -293,6 +387,7 @@ class Lexer {
     }
     // Bare `#`: line comment, anywhere.
     this.skipToEol();
+    this.comments.push({ span: [start, this.pos] });
   }
 
   private scanString(): void {
@@ -303,7 +398,17 @@ class Lexer {
     let value = '';
     for (;;) {
       if (this.pos >= this.source.length || this.ch() === '\n') {
-        return this.fail(
+        if (!this.tolerant) {
+          return this.fail(
+            'E101_LEX_UNTERMINATED_STRING',
+            'String literal is not closed before end of line/input.',
+            line,
+            col,
+            [start, this.pos],
+            'Close the string with a matching ".',
+          );
+        }
+        this.report(
           'E101_LEX_UNTERMINATED_STRING',
           'String literal is not closed before end of line/input.',
           line,
@@ -311,6 +416,8 @@ class Lexer {
           [start, this.pos],
           'Close the string with a matching ".',
         );
+        this.push('STRING', start, line, col, value);
+        return;
       }
       const c = this.ch();
       if (c === '"') {
@@ -351,7 +458,17 @@ class Lexer {
     };
     for (;;) {
       if (this.pos >= this.source.length || this.ch() === '\n') {
-        return this.fail(
+        if (!this.tolerant) {
+          return this.fail(
+            'E101_LEX_UNTERMINATED_STRING',
+            'f-string is not closed before end of line/input.',
+            chunkLine,
+            chunkCol,
+            [chunkStart, this.pos],
+            'Close the string with a matching ".',
+          );
+        }
+        this.report(
           'E101_LEX_UNTERMINATED_STRING',
           'f-string is not closed before end of line/input.',
           chunkLine,
@@ -359,6 +476,8 @@ class Lexer {
           [chunkStart, this.pos],
           'Close the string with a matching ".',
         );
+        flush();
+        return;
       }
       const c = this.ch();
       if (c === '"') {
@@ -412,7 +531,17 @@ class Lexer {
       this.advance();
       return c;
     }
-    return this.fail(
+    if (!this.tolerant) {
+      return this.fail(
+        'E103_LEX_INVALID_ESCAPE',
+        `Unknown escape sequence \\${c}.`,
+        line,
+        col,
+        [start, this.pos + (this.pos < this.source.length ? 1 : 0)],
+        `Valid escapes are \\n, \\t, \\r, \\\\, \\"${inFText ? ', \\{, \\}' : ''}.`,
+      );
+    }
+    this.report(
       'E103_LEX_INVALID_ESCAPE',
       `Unknown escape sequence \\${c}.`,
       line,
@@ -420,6 +549,9 @@ class Lexer {
       [start, this.pos + (this.pos < this.source.length ? 1 : 0)],
       `Valid escapes are \\n, \\t, \\r, \\\\, \\"${inFText ? ', \\{, \\}' : ''}.`,
     );
+    if (c === '') return '\\';
+    this.advance();
+    return `\\${c}`;
   }
 
   private scanNumber(): void {
@@ -439,7 +571,17 @@ class Lexer {
     // ponytail: numbers have no members and no exponent/hex forms, so a `.`
     // or letter directly after a number is always a mistake — that's E106.
     if (c === '.' || isIdentStart(c)) {
-      return this.fail(
+      if (!this.tolerant) {
+        return this.fail(
+          'E106_LEX_INVALID_NUMBER',
+          'Malformed numeric literal.',
+          line,
+          col,
+          [start, this.pos + (this.pos < this.source.length ? 1 : 0)],
+          'Use digits with an optional single decimal point, e.g. 42 or 3.14.',
+        );
+      }
+      this.report(
         'E106_LEX_INVALID_NUMBER',
         'Malformed numeric literal.',
         line,
@@ -485,24 +627,19 @@ class Lexer {
       this.push('BANG', start, line, col);
       return;
     }
-    if (last !== undefined && last.kind === 'IDENTIFIER') {
-      return this.fail(
-        'E104_LEX_UNEXPECTED_CHARACTER',
-        'Whitespace is not allowed between a bang-call target and `!`.',
-        line,
-        col,
-        [start, start + 1],
-        'Write the call as `foo!(...)` with no space before the bang.',
-      );
+    const message =
+      last !== undefined && last.kind === 'IDENTIFIER'
+        ? 'Whitespace is not allowed between a bang-call target and `!`.'
+        : '`!` is only valid immediately after a bang-call target (identifier or member-access chain) or as part of `!=`.';
+    const hint =
+      last !== undefined && last.kind === 'IDENTIFIER'
+        ? 'Write the call as `foo!(...)` with no space before the bang.'
+        : 'Use the `not` keyword for logical negation.';
+    if (!this.tolerant) {
+      return this.fail('E104_LEX_UNEXPECTED_CHARACTER', message, line, col, [start, start + 1], hint);
     }
-    return this.fail(
-      'E104_LEX_UNEXPECTED_CHARACTER',
-      '`!` is only valid immediately after a bang-call target (identifier or member-access chain) or as part of `!=`.',
-      line,
-      col,
-      [start, start + 1],
-      'Use the `not` keyword for logical negation.',
-    );
+    this.report('E104_LEX_UNEXPECTED_CHARACTER', message, line, col, [start, start + 1], hint);
+    this.advance();
   }
 
   private scanPunct(c: string): void {
@@ -541,26 +678,53 @@ class Lexer {
         this.advance();
         this.push(double.one, start, line, col);
       } else {
-        return this.fail(
+        if (!this.tolerant) {
+          return this.fail(
+            'E104_LEX_UNEXPECTED_CHARACTER',
+            `\`${c}\` is not an operator; did you mean \`${c}${double.next}\`?`,
+            line,
+            col,
+            [start, start + 1],
+          );
+        }
+        this.report(
           'E104_LEX_UNEXPECTED_CHARACTER',
           `\`${c}\` is not an operator; did you mean \`${c}${double.next}\`?`,
           line,
           col,
           [start, start + 1],
         );
+        this.advance();
       }
       return;
     }
-    return this.fail(
+    if (!this.tolerant) {
+      return this.fail(
+        'E104_LEX_UNEXPECTED_CHARACTER',
+        `Unexpected character ${JSON.stringify(c)}.`,
+        line,
+        col,
+        [start, start + 1],
+      );
+    }
+    this.report(
       'E104_LEX_UNEXPECTED_CHARACTER',
       `Unexpected character ${JSON.stringify(c)}.`,
       line,
       col,
       [start, start + 1],
     );
+    this.advance();
   }
 }
 
 export function lex(source: string): Token[] {
   return new Lexer(source).run();
+}
+
+// Never throws: records every lexical error and returns the partial stream.
+export function lexTolerant(source: string): TolerantLexResult {
+  const lexer = new Lexer(source, true);
+  const tokens = lexer.run();
+  return { tokens, comments: lexer.comments, diagnostics: lexer.errors };
 }
