@@ -777,6 +777,43 @@ The same execution produced nine doc-only corrections (T-1..T-9) plus FIX-2
 `placitum-v1-test-plan-3.md`; evidence in `placitum-v1-test-plan-3-findings.md`.
 Product behavior was correct in all nine — no other `src/` change.
 
+## Post-1.0: LSP core prerequisites (2026-09-21)
+
+User asked for the core-side contract required by `placitum-lsp-implementation.md` §5 (the
+language server is built in a separate repo). All items landed; gate 199/199 (178 prior +
+21 new).
+
+- **Public barrel `src/index.ts` + package exports.** Exports the pure pipeline, the
+  stdlib signature tables, manifest schema/compiler and the error types the LSP consumes;
+  deliberately does NOT export the evaluator, guard, stdlib runtime or host-bindings.
+  `package.json` gained `main`/`types`/`exports`/`files` and a `prepare` script so
+  git-dependency installs build themselves; `private: true` retained (the LSP pins a
+  commit SHA, not a semver).
+- **`analyzeSource` (`src/analysis/analyze.ts`).** Never throws on malformed input:
+  recovered `program`, `manifest` only when diagnostics is empty, every diagnostic,
+  tolerant `tokens`, `comments` trivia, `complete` flag. Gating prevents cascades — a lex
+  error skips parsing (partial tokens still returned for semantic tokens/completion), a
+  parse error skips extraction.
+- **Tolerant modes.** `lexTolerant` records lexical errors and advances deterministically
+  per error kind (E101–E106) while collecting comment spans; `parseTolerant` panic-syncs
+  at statement boundaries (NEWLINE consumed, RBRACE/EOF left for the enclosing loop),
+  drops the failed statement, resets `groupDepth`, and synthesizes the E203 close at EOF.
+  `lex`/`parse` keep the strict throw-first contract byte-for-byte — all existing goldens
+  and negatives unchanged.
+- **`src/analysis/strict.ts`.** The `#!strict` pre-pass moved verbatim out of
+  `interpreter.ts`; `collectStrictDiagnostics` now owns the pragma gate (no pragma → `[]`)
+  and collects every E505; `inferType`/`calleeSignature` exported for LSP hover. `evaluate()`
+  throws the first collected error before any statement runs (chokepoint test still proves
+  the chain's first side effect never executes).
+- **Tests.** `tests/analysis/{analyze,strict,barrel-purity}.test.ts`; the vm-sandbox
+  barrel test proves the public import closure is I/O-free. First CI run caught a real bug
+  before landing: `recover()` ignored the tolerant flag, so strict `parse()` swallowed
+  E2xx and 12 parser negatives failed — fixed at the root (one guard in `recover`), re-run
+  green.
+
+Note for the LSP repo: pin the commit that lands this (or a `lsp-v1` tag) and record it in
+that repo's `docs/CORE-VERSION.md` per §5.4.
+
 ## Next: 1.0 complete
 
 The `run`/`explain` surface, packaging, and final release gate are done. No

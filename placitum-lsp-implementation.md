@@ -415,14 +415,19 @@ The `core-adapter.ts` exception exists only so a future core-version fallback is
 
 ## 5. Phase 0 — Core Repository Contract (blocking prerequisite)
 
-The LSP repo depends on `quesadx/pl-lg`. The core is currently `private: true`, version
-`1.0.0`, has no `exports` map, no barrel, and its analysis functions throw on the first
-error. The LSP needs the following, all delivered as one small PR in the core repo, then
-tagged/pinned. **Do not start LSP analysis work until this lands.**
+The LSP repo depends on `quesadx/pl-lg`. The core originally had no `exports` map, no
+barrel, and analysis functions that throw on the first error. **Status (2026-09-21):
+implemented on the core `dev` branch** — §5.1–5.3 below now describe the shipped API
+(and the tests that pin it). The remaining step for the LSP repo is §5.4: pin the exact
+commit SHA. The fallback paragraph at the end of this section no longer applies.
 
 ### 5.1 Mandatory: public barrel + package exports (core repo)
 
-Add `src/index.ts` re-exporting exactly (names must match):
+`src/index.ts` re-exports (names match this spec; `isCallable`/`Value`/`CallableValue`/
+`PlacitumErrorInit`/`ErrorSource`/`GlobPattern`/`ExecPattern`/`EnvRequirement`/
+`SerializedGlobPattern`/`BangFn`/`Stdlib` and the tolerant-mode types `lexTolerant`,
+`parseTolerant`, `TolerantLexResult`, `TolerantParseResult`, `AnalysisResult`,
+`CommentTrivia` are exported in addition):
 
 ```ts
 // pipeline (pure, throws on first error — v1.0 behavior)
@@ -477,58 +482,58 @@ Add `src/analysis/analyze.ts`:
 
 ```ts
 export interface AnalysisResult {
-  program: Program | null;            // non-null iff lex+parse produced a complete program
-  manifest: SerializedManifest | null;// non-null iff program !== null and extract() succeeded
+  program: Program | null;            // recovered AST when lexing is clean; null otherwise
+  manifest: SerializedManifest | null;// non-null iff diagnostics is empty (extract succeeded)
   diagnostics: PlacitumError[];       // every error found, in source order
-  tokens: Token[];                    // best-effort token stream (may be partial)
-  comments: CommentTrivia[];          // see 5.3; may be empty in the fallback
+  tokens: Token[];                    // tolerant token stream (partial on lexical errors)
+  comments: CommentTrivia[];          // trivia spans, collected by the lexer
   complete: boolean;                  // diagnostics.length === 0
 }
 
-export interface CommentTrivia { span: readonly [number, number]; }
+export interface CommentTrivia { span: readonly [number, number]; } // defined in lexer/lexer.ts
 
 export function analyzeSource(source: string): AnalysisResult;
 ```
 
-Two acceptable implementations:
+Implemented behavior (tolerant — never throws on malformed input):
 
-- **Phase 0a (fallback, ships the LSP):** try `lex`/`parse`/`extract` in sequence; catch the
-  first `PlacitumErrorBase`; return it as the single diagnostic, `program: null` on syntax
-  errors, `tokens: []` unless lexing succeeded, `comments` computed by the LSP instead.
-  This is one diagnostic at a time; the LSP updates on every keystroke, so as soon as the
-  user fixes it the next one appears. It is shippable but second-class.
-- **Phase 0b (preferred, tolerant):** recovery inside the lexer/parser:
-  - Lexer: replace `throw fail(...)` with "record diagnostic + advance deterministically":
-    E101/E102 close the literal at the current position and continue; E103 skip the
-    backslash; E104/E105/E106 skip the offending characters/token. **Every recovery path
-    must guarantee `pos` advanced.**
-  - Parser: on a statement-level error, record the diagnostic, then **panic-sync**: skip
-    tokens until `NEWLINE`, `RBRACE`, or `EOF`, and continue parsing the next statement.
-    `E203` (unterminated block) synthesizes a closing `}` at EOF and continues in the
-    enclosing block. `E204`/`E205` skip the remainder of the line. `E206` dedupes and
-    continues the parameter list.
-  - `extract()` runs **only** when zero lex/parse diagnostics were recorded (recovered ASTs
-    must not produce cascading capability errors).
-  - Add tests in core: `tests/analysis/analyze.test.ts` with at least: two syntax errors in
-    one file both reported; one syntax + one extract error → only the syntax error; tokens
-    non-empty despite a lex error; `complete` flag semantics.
+- The lexer records diagnostics and advances deterministically: E101/E102 close the
+  literal at the current position, E103 skips the invalid escape pair, E104/E105/E106
+  skip the offending characters/token. Every recovery path guarantees `pos` advanced.
+- A lex error skips parsing entirely (`program: null`): the partial token stream is still
+  returned for semantic tokens/completion, but no AST-based feature runs on it.
+- A parse error (E201–E206) is recorded and the parser **panic-syncs**: skip tokens until
+  `NEWLINE` (consumed), `RBRACE` or `EOF` (left for the enclosing loop). The failed
+  statement is dropped and parsing continues at the next one; `E203` synthesizes the
+  missing close at EOF so the enclosing statement can finish. `groupDepth` resets during
+  resync, restoring NEWLINE statement termination.
+- `extract()` runs **only** when zero lex/parse diagnostics were recorded (recovered ASTs
+  must not produce cascading capability errors).
+- `lex()` / `parse()` keep the strict fail-on-first-error contract byte-for-byte
+  (existing goldens and negatives are unchanged); tolerant behavior lives in
+  `lexTolerant()` / `parseTolerant()`.
+- Tests: `tests/analysis/analyze.test.ts` (two syntax errors both reported; extract error
+  after a clean parse; tokens non-empty despite a lex error; E102/E203 recovery; comment
+  trivia; `complete` semantics) and `tests/analysis/barrel-purity.test.ts` (vm sandbox:
+  importing the barrel drags no I/O).
 
 ### 5.3 Mandatory: strict-pipe diagnostics collector + type inference export
 
-Refactor core `evaluator/interpreter.ts` internals so the LSP can reuse them without
-executing anything:
+Implemented in `src/analysis/strict.ts` (moved verbatim out of `evaluator/interpreter.ts`
+so the barrel's import closure excludes the evaluator):
 
 ```ts
-// src/analysis/strict.ts (or exported from interpreter.ts)
 export function collectStrictDiagnostics(program: Program): EvalError[];
-// same rules as checkPipe/checkStmt today, but pushes instead of throwing
-export function inferType(expr: Expr): TypeName;         // exact current semantics
+export function inferType(expr: Expr): TypeName;         // exact prior semantics
 export function calleeSignature(callee: Expr): NativeSig | null;
 ```
 
-Tests: the collector's output must be code-identical to the current pre-pass behavior on
-every existing `E505` fixture and the Rosetta/kitchen-sink goldens (assert same code +
-location).
+- The `#!strict` gate lives **inside** `collectStrictDiagnostics` (no pragma → `[]`), so
+  no caller can forget it.
+- `evaluate()` calls the collector and throws its first error before any statement runs,
+  preserving the Phase 5 gate (`tests/eval/chokepoint.test.ts` proves no side effect runs).
+- Tests: `tests/analysis/strict.test.ts` pins the E505 code/location, multiple broken
+  chains, the no-pragma and well-typed cases, plus `inferType`/`calleeSignature`.
 
 ### 5.4 Version pinning
 
@@ -543,13 +548,10 @@ After the core PR merges to `main`:
 4. `core-adapter.ts` holds every core call behind small typed wrappers and a
    `CORE_API_VERSION` constant. If a future core changes an API, only this file changes.
 
-**Fallback if the core PR cannot land:** the LSP may vendor nothing; instead implement
-single-error diagnostics by calling the throwing functions directly (the adapter already
-isolates this) and mark comment trivia / semantic tokens degraded. `collectStrictDiagnostics`
-and `inferType` are then re-implemented in the LSP (`src/analysis/checks.ts`,
-`src/analysis/types.ts`) with a `TODO(core-export)` note and a consistency test that skips
-when the core export is present. **Do not** duplicate the lexer or parser under any
-circumstances.
+The earlier fallback (single-error diagnostics, LSP-side re-implementation of the strict
+collector) is **obsolete**: the tolerant core API shipped. `core-adapter.ts` must not
+re-implement any core logic — every capability/diagnostic/type answer comes from the
+barrel. **Do not** duplicate the lexer, parser, or the strict collector in the LSP repo.
 
 ---
 
@@ -1451,24 +1453,27 @@ binary; multi-root workspace symbols. Each needs a new gate.
 
 ```ts
 import {
-  analyzeSource, lex, parse, extract, explain, formatError, compileManifest,
+  analyzeSource, lex, lexTolerant, parse, parseTolerant, extract, explain, formatError,
+  compileManifest, SerializedCapabilityManifestSchema,
   BANG_REGISTRY, BANG_SIGNATURES, PURE_SIGNATURES, AMBIENT_BANGS, EFFECTFUL_STDLIB,
-  globToRegex, globCovers, hostToRegex, display, typeName,
+  globToRegex, globCovers, hostToRegex, display, typeName, isCallable, truthy, deepEquals,
   collectStrictDiagnostics, inferType, calleeSignature,
-  PlacitumErrorBase, LexError, ParseError, ExtractError, EvalError,
+  PlacitumErrorBase, LexError, ParseError, ExtractError, EvalError, CliError,
 } from 'placitum';
 import type {
   Program, Statement, Expr, FnDecl, LetStmt, Param, ForStmt, IfStmt, WhileStmt,
   BangCall, CallExpr, MemberExpr, Identifier, StringLiteral, ObjectLiteral, ObjectProperty,
   FStringExpr, PipeExpr, AssignExpr, BinaryExpr, UnaryExpr, NeedsDecl, OnlyCapability,
-  SerializedManifest, DeferredCheck, EffectCategory, NativeSig, TypeName, Token, TokenKind,
-  PlacitumError, AnalysisResult, CommentTrivia,
+  SerializedManifest, CapabilityManifest, DeferredCheck, EffectCategory, NativeSig,
+  TypeName, Value, Token, TokenKind, TolerantLexResult, TolerantParseResult,
+  PlacitumError, PlacitumErrorInit, AnalysisResult, CommentTrivia,
 } from 'placitum';
 ```
 
-If `collectStrictDiagnostics`/`inferType`/`calleeSignature` are absent (fallback core), the
-adapter returns `null`/re-implements locally with the `TODO(core-export)` marker; every
-feature must handle their absence without failing.
+The core barrel always exports all of the above (verified by
+`tests/analysis/barrel-purity.test.ts`). If a future pin lacks one, that is a versioning
+bug: update the pin or bump `CORE_API_VERSION` — never add a runtime fallback branch in
+the server.
 
 ## Appendix B — Semantic Tokens Legend (frozen)
 
