@@ -14,7 +14,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "AUTHORS"
   ],
   "bin": {
     "placitum": "dist/cli/bin.js"
