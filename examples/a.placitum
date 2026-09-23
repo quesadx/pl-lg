@@ -1,6 +1,0 @@
-
-let number = 5
-
-print!(number)
-
-print!(f"\rHola, el numero es {number}")

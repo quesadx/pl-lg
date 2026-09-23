@@ -1,0 +1,35 @@
+# Publishes to npm when a version tag (v*) is pushed on a merged commit.
+#
+# Before the first release:
+#   1. Create the npm account/token and add it as the NPM_TOKEN repository secret
+#      (Settings -> Secrets and variables -> Actions), OR configure Trusted
+#      Publishing on npmjs.com and drop the NODE_AUTH_TOKEN env below.
+#   2. `--provenance` needs a public repository; delete the flag if the repo is
+#      private.
+#   3. Tag the exact commit that should be published:
+#        git tag v1.0.0 && git push origin v1.0.0
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # provenance attestation (and Trusted Publishing)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run ci
+      - run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
