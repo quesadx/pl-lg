@@ -408,3 +408,9 @@ updating, downgrading, or reinstalling.
 npm install
 npm run ci
 ```
+
+## License
+
+[MIT](./LICENSE) © The Placitum Authors ([AUTHORS](./AUTHORS)). You may use,
+modify, and redistribute this software as long as the copyright notice and the
+license text are kept.
