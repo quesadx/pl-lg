@@ -1,10 +1,27 @@
 {
   "name": "placitum",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "description": "Capability-secure shell language",
   "license": "MIT",
+  "keywords": [
+    "language",
+    "capability",
+    "security",
+    "shell",
+    "interpreter"
+  ],
+  "homepage": "https://github.com/quesadx/pl-lg#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quesadx/pl-lg.git"
+  },
+  "bugs": {
+    "url": "https://github.com/quesadx/pl-lg/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,6 +39,7 @@
   },
   "scripts": {
     "prepare": "npm run build",
+    "prepublishOnly": "npm run ci",
     "check-deps": "node scripts/check-deps.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
