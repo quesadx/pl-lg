@@ -101,6 +101,53 @@ for endpoint in config.endpoints {
 | Iterate | `for item in items { ... }` | `for item in ...; do ...; done` |
 | Interpolate text | `f"status={result.status}"` | `printf 'status=%s\\n' "$status"` |
 
+## Complete rosetta (runnable)
+
+[`examples/rosetta.placitum`](examples/rosetta.placitum) is a runnable tour of
+the whole language — strings, files, pipes, functions, loops, and capabilities.
+It only writes one file (`rosetta-out.json`) and makes no network calls:
+
+```bash
+placitum run examples/rosetta.placitum
+```
+
+| Intent | Placitum | Bash-like equivalent |
+| --- | --- | --- |
+| Comment | `# note` | `# note` |
+| Strict-mode pragma | `#!strict` | `set -euo pipefail` |
+| Declare capabilities | `needs fs.read("**/x.json"), net("api.example.com"), env(TOKEN?)` | none — ambient access by default |
+| Declare a value | `let retries = 3` | `retries=3` |
+| String escapes | `"a\tb \"q\""` | `$'a\tb "q"'` |
+| Interpolate text | `f"{name} -> {verdict}"` | `printf '%s -> %s\n' "$name" "$verdict"` |
+| Object literal | `{ name: "gw", stride: 2.5 }` | associative array (bash 4) |
+| Array literal | `["alpha", "beta"]` | `("alpha" "beta")` |
+| Member access | `config.name` | `${config[name]}` |
+| Define a function | `fn classify(score) { ... }` | `classify() { ...; }` |
+| Attenuate a function | `fn f(p) needs only(fs.read("**/x.json")) { ... }` | none |
+| Return | `return "healthy"` | `echo healthy` / `return` |
+| Conditional | `if verdict == "healthy" { ... } else { ... }` | `if [ "$verdict" = healthy ]; then ...; else ...; fi` |
+| While loop | `while retries > 0 { ... }` | `while [ "$retries" -gt 0 ]; do ...; done` |
+| Iterate | `for e in config.endpoints { ... }` | `for e in "${endpoints[@]}"; do ...; done` |
+| Logical operators | `a && not b \|\| c` | `a && ! b \|\| c` |
+| Comparisons | `score >= config.threshold` | `[ "$score" -ge "$threshold" ]` |
+| Arithmetic | `total * config.stride` | `$((total * stride))` (integers only) |
+| Pipe to a pure function | `text \| json.parse` | `jq .` |
+| Pipe to an effectful call | `"url" \| curl!({ method: "GET" })` | `echo "$url" \| curl ...` |
+| Read a file | `fs.readFile!(path)` | `cat "$path"` |
+| Write a file | `fs.writeFile!(path, text)` | `printf '%s' "$text" > "$path"` |
+| HTTP request | `curl!(url, { method: "GET" })` | `curl -X GET "$url"` |
+| Print | `print!(x)` / `eprint!(x)` | `echo "$x"` / `echo "$x" >&2` |
+| End the script | top-level `return` | `exit` |
+
+Filesystem grants are matched against the canonical (absolute) path at runtime,
+so use a `"**/name"` pattern when the script should stay location-independent.
+
+### Local install
+
+`./local-deploy.sh` builds the repo and installs a `placitum` launcher into
+`~/.local/bin`. If one is already there it compares versions and asks before
+updating, downgrading, or reinstalling.
+
 ## Development
 
 ```bash

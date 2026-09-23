@@ -1,0 +1,88 @@
+#!strict
+
+# Placitum rosetta — every language construct in one runnable script.
+# Run it from the repo root:   placitum run examples/rosetta.placitum
+# It writes one file, rosetta-out.json, into the current directory.
+
+needs fs.write("**/rosetta-out.json"), fs.read("**/rosetta-out.json"), net("api.example.com"), env(ROSETTA_TOKEN?)
+
+# -- literals: strings, escapes, numbers, booleans, null, f-strings --------
+
+let greeting = "hello\tplacitum \"rosetta\"" # escapes: \t and \"
+print!(greeting)
+
+let doc = "{\"name\": \"edge-gateway\", \"endpoints\": [\"alpha\", \"beta\", \"gamma\"], \"threshold\": 5, \"stride\": 2.5, \"remote\": false, \"owner\": null}"
+
+# -- capability-gated filesystem writes are bang calls ---------------------
+
+let out_path = "rosetta-out.json"
+fs.writeFile!(out_path, doc)
+
+# -- functions: params, return, only(...) attenuation, pure pipes ----------
+
+fn load_config(path) needs only(fs.read("**/rosetta-out.json")) {
+    # only(...) narrows this function's guard to that single read grant.
+    return fs.readFile!(path) | json.parse # pipe into a pure native
+}
+
+fn classify(score) {
+    if score >= config.threshold {
+        return "healthy"
+    } else {
+        return "degraded"
+    }
+}
+
+let config = load_config(out_path)
+
+# -- objects and member access ---------------------------------------------
+
+let summary = { name: config.name, endpoints: config.endpoints, owner: config.owner }
+print!(f"config {summary.name} ({summary.endpoints}) owner={summary.owner}")
+
+# -- for..in over the parsed array, arithmetic, comparisons ----------------
+
+let total = 0
+let healthy = 0
+for endpoint in config.endpoints {
+    total = total + 1
+    let verdict = classify(total * config.stride)
+    if verdict == "healthy" {
+        healthy = healthy + 1
+    } else {
+        eprint!(f"warning: {endpoint} is {verdict}")
+    }
+    print!(f"[{total}] {endpoint} -> {verdict}")
+}
+
+# -- while loop ------------------------------------------------------------
+
+let retries = 3
+while retries > 0 {
+    print!(f"retry in {retries}...")
+    retries = retries - 1
+}
+
+# -- booleans, null, not, &&, || -------------------------------------------
+
+let ok = healthy > 0 && not config.remote && (healthy == total || config.stride < 3)
+if ok {
+    print!(f"all checks passed ({healthy}/{total})")
+} else {
+    print!(f"degraded run ({healthy}/{total})")
+}
+
+# -- the net capability, in a branch this config disables ------------------
+
+if config.remote {
+    let response = "https://api.example.com/health" | curl!({ method: "GET" })
+    print!(f"remote status {response.status}")
+} else {
+    print!("remote check skipped (config.remote = false)")
+}
+
+let weight = 1.5
+print!(f"weight doubled = {weight * 2}")
+
+# a top-level `return` ends the script
+return
