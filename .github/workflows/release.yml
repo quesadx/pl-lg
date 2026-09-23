@@ -13,6 +13,8 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Allows re-running the publish from main without creating/moving a tag.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,6 +32,6 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run ci
-      - run: npm publish --provenance
+      - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
