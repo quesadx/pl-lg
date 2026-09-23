@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Capability-secure shell language",
+  "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
