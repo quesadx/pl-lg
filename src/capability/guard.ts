@@ -1,4 +1,4 @@
-import { realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { CapabilityViolationError } from '../shared/errors.js';
 import { hostToRegex } from '../shared/glob-to-regex.js';
@@ -6,7 +6,7 @@ import type { CapabilityManifest } from '../shared/manifest.js';
 import { assertNever } from '../shared/assert-never.js';
 
 // Phase 4 — the runtime enforcer (Sections 2.2, 11). The only module besides
-// /host-bindings allowed to import fs, and only for realpathSync: this is the
+// /host-bindings allowed to import fs, and only for realpath/lstat: this is the
 // sole canonicalization point in the runtime. Instantiate once per run with
 // the manifest the extractor produced, already compiled via compileManifest
 // (regexes are always recompiled locally — Section 7.3).
@@ -142,7 +142,24 @@ export class CapabilityGuard implements Guard {
         hint: 'Name the file being written; a trailing ".."/"." cannot be canonicalized safely.',
       });
     }
-    const canonical = `${canonicalizeExisting(dirname(path))}/${leaf}`;
+    let canonical: string;
+    try {
+      // An existing leaf may itself be a symlink; match the real target, never
+      // the link path, so writeFileSync cannot escape through it.
+      canonical = realpathSync(path);
+    } catch (err) {
+      if (!(err instanceof Error && (err as { code?: unknown }).code === 'ENOENT')) throw err;
+      // A dangling symlink would be created through by writeFileSync. Refuse it
+      // instead of trusting the lexical parent path.
+      if (lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() === true) {
+        throw new CapabilityViolationError({
+          code: 'E403_GUARD_PATH_TRAVERSAL',
+          message: `write target "${path}" is a symbolic link whose target does not exist`,
+          hint: 'Write to the real file name; dangling symlinks cannot be authorized safely.',
+        });
+      }
+      canonical = `${canonicalizeExisting(dirname(path))}/${leaf}`;
+    }
     return this.matchCanonical(path, canonical, this.manifest.fsWrite, 'E404_GUARD_FS_WRITE_DENIED', 'fsWrite');
   }
 

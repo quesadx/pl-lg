@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -182,6 +182,32 @@ describe('Phase 5: host-binding chokepoint', () => {
     }
   });
 
+  it('refuses a real write through a symlink leaf and leaves the target untouched', () => {
+    const safe = realpathSync(mkdtempSync(join(tmpdir(), 'placitum-write-link-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'placitum-write-outside-')));
+    try {
+      writeFileSync(join(outside, 'victim.txt'), 'ORIGINAL');
+      symlinkSync(join(outside, 'victim.txt'), join(safe, 'log.txt'));
+      const source = [
+        `needs fs.write("${safe}/**")`,
+        '',
+        `fs.writeFile!("${safe}/log.txt", "HACKED")`,
+      ].join('\n');
+      let thrown: unknown;
+      try {
+        runSource(source, { env: {}, hosts: captureHosts().hosts }); // real guard + host bindings
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(CapabilityViolationError);
+      expect((thrown as CapabilityViolationError).code).toBe('E403_GUARD_PATH_TRAVERSAL');
+      expect(readFileSync(join(outside, 'victim.txt'), 'utf8')).toBe('ORIGINAL');
+    } finally {
+      rmSync(safe, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it('fails E406 when a non-optional env(...) is unset at runtime (real guard)', () => {
     let thrown: unknown;
     try {
@@ -240,6 +266,69 @@ server.listen(0, '127.0.0.1', () => process.stdout.write(String(server.address()
       ].join('\n');
       runSource(source, { env: {}, hosts }); // real guard + real fetch
       expect(stdout).toEqual(['hello-from-server']);
+    } finally {
+      server.kill();
+    }
+  });
+
+  it('refuses redirects instead of following them to another host', async () => {
+    const serverScript = `
+import { createServer } from 'node:http';
+const server = createServer((_req, res) => {
+  res.writeHead(302, { Location: 'http://127.0.0.1:1/secret' });
+  res.end();
+});
+server.listen(0, '127.0.0.1', () => process.stdout.write(String(server.address().port)));
+`;
+    const server = spawn(process.execPath, ['--input-type=module', '-e', serverScript]);
+    const port = await new Promise<number>((resolve) => {
+      server.stdout.once('data', (chunk: Buffer) => resolve(Number(chunk.toString())));
+    });
+    try {
+      const source = [
+        'needs net("127.0.0.1")',
+        '',
+        `curl!("http://127.0.0.1:${port}/go")`,
+      ].join('\n');
+      let thrown: unknown;
+      try {
+        runSource(source, { env: {}, hosts: captureHosts().hosts });
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(EvalError);
+      expect((thrown as EvalError).code).toBe('E501_EVAL_TYPE_MISMATCH');
+      expect((thrown as EvalError).message).toContain('redirect refused');
+    } finally {
+      server.kill();
+    }
+  });
+
+  it('sends a large request body on stdin, not through argv', async () => {
+    const serverScript = `
+import { createServer } from 'node:http';
+const server = createServer((req, res) => {
+  let size = 0;
+  req.on('data', (chunk) => { size += chunk.length; });
+  req.on('end', () => res.end(String(size)));
+});
+server.listen(0, '127.0.0.1', () => process.stdout.write(String(server.address().port)));
+`;
+    const server = spawn(process.execPath, ['--input-type=module', '-e', serverScript]);
+    const port = await new Promise<number>((resolve) => {
+      server.stdout.once('data', (chunk: Buffer) => resolve(Number(chunk.toString())));
+    });
+    try {
+      const body = 'x'.repeat(2 * 1024 * 1024);
+      const { hosts, stdout } = captureHosts();
+      const source = [
+        'needs net("127.0.0.1")',
+        '',
+        `let r = curl!("http://127.0.0.1:${port}/upload", { method: "POST", body: "${body}" })`,
+        'print!(r.body)',
+      ].join('\n');
+      runSource(source, { env: {}, hosts });
+      expect(stdout).toEqual([String(body.length)]);
     } finally {
       server.kill();
     }

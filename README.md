@@ -230,7 +230,8 @@ Builtins:
 
 - `curl!` defaults to `GET` with no body; `status` is a number and `body` a
   string. Host failures (DNS, refused connection) are E501 host errors, not
-  capability denials.
+  capability denials. HTTP redirects are refused (E501): following one could
+  leave the granted host.
 - `print!` and `eprint!` append a newline.
 - Effectful builtins are reachable only as bang calls with `!` attached
   directly to the target: `fs.readFile!(...)` works, `fs.readFile(...)` is E500
@@ -267,7 +268,8 @@ Enforcement happens in two places:
 2. **Runtime enforcement.** The guard canonicalizes paths (`..`, symlinks) and
    matches the canonical path against the grants. A value that string-matched
    but canonicalizes outside its grant is E403; no match is E402 (read), E404
-   (write), E405 (exec), or E401 (network).
+   (write), E405 (exec), or E401 (network). A write whose leaf is an existing
+   symlink is matched by its target; a dangling symlink is denied (E403).
 
 `placitum explain <file>` prints exactly what was proven statically, what each
 function attenuates to, and what was deferred.

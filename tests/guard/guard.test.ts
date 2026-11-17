@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -194,6 +194,39 @@ describe('Phase 4: CapabilityGuard.authorize — fsWrite', () => {
     const guard = new CapabilityGuard(manifestOf({ fsWrite: [{ raw: `${safe}/**` }] }));
     expect(deniedBy(() => guard.authorize({ category: 'fsWrite', path: `${safe}/..` })).code).toBe(
       'E403_GUARD_PATH_TRAVERSAL',
+    );
+  });
+
+  it('E403 on an existing symlink leaf pointing outside the grant; target is untouched', () => {
+    const safe = sandbox('write-link');
+    const outside = sandbox('write-link-outside');
+    writeFileSync(`${outside}/victim.txt`, 'ORIGINAL');
+    symlinkSync(`${outside}/victim.txt`, `${safe}/log.txt`);
+    const guard = new CapabilityGuard(manifestOf({ fsWrite: [{ raw: `${safe}/**` }] }));
+    expect(
+      deniedBy(() => guard.authorize({ category: 'fsWrite', path: `${safe}/log.txt` })).code,
+    ).toBe('E403_GUARD_PATH_TRAVERSAL');
+    expect(readFileSync(`${outside}/victim.txt`, 'utf8')).toBe('ORIGINAL');
+  });
+
+  it('E403 on a dangling symlink leaf; the outside target is never created', () => {
+    const safe = sandbox('write-dangling');
+    const outside = sandbox('write-dangling-outside');
+    symlinkSync(`${outside}/new.txt`, `${safe}/log.txt`);
+    const guard = new CapabilityGuard(manifestOf({ fsWrite: [{ raw: `${safe}/**` }] }));
+    expect(
+      deniedBy(() => guard.authorize({ category: 'fsWrite', path: `${safe}/log.txt` })).code,
+    ).toBe('E403_GUARD_PATH_TRAVERSAL');
+    expect(existsSync(`${outside}/new.txt`)).toBe(false);
+  });
+
+  it('authorizes a symlink leaf whose canonical target is inside the grant', () => {
+    const safe = sandbox('write-link-inside');
+    writeFileSync(`${safe}/real.txt`, 'x');
+    symlinkSync(`${safe}/real.txt`, `${safe}/alias.txt`);
+    const guard = new CapabilityGuard(manifestOf({ fsWrite: [{ raw: `${safe}/**` }] }));
+    expect(guard.authorize({ category: 'fsWrite', path: `${safe}/alias.txt` })).toBe(
+      realpathSync(`${safe}/real.txt`),
     );
   });
 });

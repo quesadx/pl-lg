@@ -39,24 +39,32 @@ function hostError(what: string, err: unknown): EvalError {
 // The evaluator is a synchronous tree-walker, so curl! must block, and Node has
 // no synchronous fetch. A one-shot `node -e` subprocess running the global
 // fetch is the dependency-free way to get one.
+// The request (including URL, which may carry credentials) travels on stdin,
+// never argv: argv is visible in the process list and capped by ARG_MAX.
+// Redirects are refused: a granted host could otherwise bounce the request to
+// any other host.
 // ponytail: one process per request (~30ms); swap for an in-process
 // Atomics.wait bridge if request volume ever makes spawn cost matter.
 const FETCH_SUBPROCESS = `
-const url = process.argv[1];
-const init = JSON.parse(process.argv[2]);
-const res = await fetch(url, { method: init.method, body: init.body });
-const body = await res.text();
-process.stdout.write(JSON.stringify({ status: res.status, body }));
+import { readFileSync } from 'node:fs';
+const { url, method, body } = JSON.parse(readFileSync(0, 'utf8'));
+const res = await fetch(url, { method, body, redirect: 'manual' });
+if (res.status >= 300 && res.status < 400) {
+  const location = res.headers.get('location') ?? '(no Location)';
+  throw new Error(\`redirect refused: \${res.status} -> \${location}\`);
+}
+const text = await res.text();
+process.stdout.write(JSON.stringify({ status: res.status, body: text }));
 `;
 
 function fetchSync(url: string, opts: FetchOptions): FetchResponse {
-  const payload = JSON.stringify({ method: opts.method, body: opts.body });
+  const payload = JSON.stringify({ url, method: opts.method, body: opts.body });
   let out: string;
   try {
     out = execFileSync(
       process.execPath,
-      ['--input-type=module', '-e', FETCH_SUBPROCESS, url, payload],
-      { encoding: 'utf8', timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
+      ['--input-type=module', '-e', FETCH_SUBPROCESS],
+      { encoding: 'utf8', input: payload, stdio: 'pipe', timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
     );
   } catch (err) {
     throw hostError(`curl!("${url}")`, err);
