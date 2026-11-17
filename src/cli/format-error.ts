@@ -44,10 +44,10 @@ function excerpt(err: PlacitumError, source: ErrorSource): string[] {
   const arrow = `${' '.repeat(w)}--> ${printable(source.name)}:${location.line}:${location.col}`;
   const gutter = `${' '.repeat(w)} |`;
   const excerptLine = `${String(location.line).padStart(w)} | ${sanitize(lineText)}`;
-  // Line start offset: sum of all preceding lines plus their newlines.
-  let lineStart = 0;
-  for (let i = 0; i < location.line - 1; i++) lineStart += (lines[i] as string).length + 1;
+  // Derive the line start from the original text, not from the stripped line
+  // lengths: a CRLF break is two UTF-16 units, so `length + 1` drifts.
   const span = location.span;
+  const lineStart = span === undefined ? 0 : source.text.lastIndexOf('\n', Math.max(0, span[0] - 1)) + 1;
   const caretCol = span === undefined ? location.col - 1 : Math.max(0, span[0] - lineStart);
   const caretEnd = span === undefined ? caretCol + 1 : Math.min(span[1] - lineStart, lineText.length);
   const caretCount = Math.max(1, caretEnd - caretCol);

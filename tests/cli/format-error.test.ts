@@ -126,6 +126,27 @@ describe('Phase 9: error formatter (Section 9.3)', () => {
     expect(formatError(err)).toBe(expected);
   });
 
+  it('keeps the caret aligned in CRLF sources', () => {
+    const source = 'let x = 1\r\nprint!(y)\r\n';
+    const err: PlacitumError = {
+      code: 'E500_EVAL_UNBOUND_VAR',
+      phase: 'eval',
+      severity: 'error',
+      message: 'identifier not declared',
+      location: { line: 2, col: 8, span: [18, 19] },
+    };
+    const expected = [
+      'error[E500_EVAL_UNBOUND_VAR]: identifier not declared',
+      ' --> script.placitum:2:8',
+      '  |',
+      '2 | print!(y)',
+      '  |        ^',
+      '  |',
+      '',
+    ].join('\n');
+    expect(formatError(err, { name: 'script.placitum', text: source })).toBe(expected);
+  });
+
   it('neutralizes terminal escapes in the excerpt without shifting the carets', () => {
     const source = 'ab\u001bcd\n';
     const err: PlacitumError = {

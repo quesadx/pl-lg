@@ -24,5 +24,5 @@ export function runSource(source: string, opts: RunOptions = {}): void {
   const guard = opts.guard ?? new CapabilityGuard(compileManifest(extract(program)));
   guard.requireEnv(opts.env ?? process.env);
   const stdlib = buildStdlib(opts.hosts ?? hostBindings);
-  evaluate(program, { globals: stdlib.globals, bangs: stdlib.bangs, guard });
+  evaluate(program, { globals: stdlib.globals, bangs: stdlib.bangs, guard, callDepth: 0 });
 }

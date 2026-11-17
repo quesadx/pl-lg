@@ -34,6 +34,10 @@ describe('Phase 5: evaluator type errors', () => {
       expect(outcome(source)).toBe(code);
     });
   }
+
+  it('stops runaway recursion with E501 instead of a JS stack overflow', () => {
+    expect(outcome('fn f() { return f() }\nf()')).toBe('E501_EVAL_TYPE_MISMATCH');
+  });
 });
 
 // FIX-1: errors thrown inside callees (closure arity, native arity/type) have

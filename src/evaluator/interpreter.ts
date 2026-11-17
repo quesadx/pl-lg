@@ -18,7 +18,11 @@ export interface EvalContext {
   globals: ReadonlyMap<string, Value>;
   bangs: Readonly<Record<string, BangFn>>;
   guard: Guard;
+  /** Current Placitum call depth; prevents a script from exhausting the JS stack. */
+  callDepth: number;
 }
+
+const MAX_CALL_DEPTH = 512;
 
 interface Located {
   line: number;
@@ -110,18 +114,30 @@ class Closure implements CallableValue {
         'Match the FnDecl parameter list.',
       );
     }
+    if (this.ctx.callDepth >= MAX_CALL_DEPTH) {
+      throw evalError(
+        'E501_EVAL_TYPE_MISMATCH',
+        `maximum call depth of ${MAX_CALL_DEPTH} exceeded in fn \`${this.name}\`.`,
+        'A recursive call is not reaching its base case.',
+      );
+    }
     // A fn with its own needs clause runs under its attenuated child manifest;
     // an inheriting fn keeps the guard of its defining scope (Section 2.3).
     const guard = this.attenuated ? this.declGuard.forScope(this.name) : this.declGuard;
     const env = new Env(this.env);
     this.params.forEach((p, i) => env.define(p, args[i] as Value));
+    this.ctx.callDepth += 1;
     try {
-      execBody(this.body.body, env, guard, this.ctx);
-    } catch (err) {
-      if (err instanceof ReturnSignal) return err.value;
-      throw err;
+      try {
+        execBody(this.body.body, env, guard, this.ctx);
+      } catch (err) {
+        if (err instanceof ReturnSignal) return err.value;
+        throw err;
+      }
+      return null;
+    } finally {
+      this.ctx.callDepth -= 1;
     }
-    return null;
   }
 }
 
