@@ -15,7 +15,7 @@ import { formatError } from './format-error.js';
 // so the release gate is testable in-process. Every failure that leaves this
 // module is a PlacitumError rendered by the one Section 9.3 formatter.
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 
 export interface CliIo {
   stdout: { write(text: string): void };

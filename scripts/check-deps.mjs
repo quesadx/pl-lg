@@ -12,7 +12,6 @@ const ALLOW_LIST = new Set([
   '@typescript-eslint/parser',
   '@typescript-eslint/eslint-plugin',
   'vitest',
-  'tsx',
   'commander',
   'prettier',
   '@types/node',

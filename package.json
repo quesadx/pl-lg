@@ -1,6 +1,6 @@
 {
   "name": "placitum",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Capability-secure shell language",
   "license": "MIT",
@@ -32,7 +32,8 @@
   },
   "files": [
     "dist",
-    "AUTHORS"
+    "AUTHORS",
+    "CHANGELOG.md"
   ],
   "bin": {
     "placitum": "dist/cli/bin.js"
